@@ -48,6 +48,8 @@ class PermissionInformationDialog(QDialog):
 
         # Create a label for showing the super users.
         self.super_user_label = QLabel()
+        # Create a label for showing the owners.
+        self.owner_label = QLabel()
         # Create a table model for showing the result of a query in a table.
         self.table_model = TableModel([])
         # Create a table view for the model for showing the data in the GUI.
@@ -73,10 +75,11 @@ class PermissionInformationDialog(QDialog):
         # Connect the error signal to the function for processing the error, so the user is informed about it.
         self.database_query_executor.error.connect(self.process_error)
 
-        # Define two booleans for a query check: If the query for the required parameter is executed, set the check to
+        # Define three booleans for a query check: If the query for the required parameter is executed, set the check to
         # True.
         self.super_user_check = False
         self.function_table_check = False
+        self.database_owner_check = False
 
         # Get the super users, which triggers also the query for getting the function data/table data.
         self.get_super_users()
@@ -94,7 +97,8 @@ class PermissionInformationDialog(QDialog):
 
         grid_layout = QGridLayout(self)
         grid_layout.addWidget(self.super_user_label, 0, 0)
-        grid_layout.addWidget(self.table_view, 1, 0)
+        grid_layout.addWidget(self.owner_label, 1, 0)
+        grid_layout.addWidget(self.table_view, 2, 0)
 
         grid_layout.setSpacing(10)
         self.setLayout(grid_layout)
@@ -118,26 +122,32 @@ class PermissionInformationDialog(QDialog):
 
     def process_result_data(self, data_list):
         """
-        Process the result data based on the executed queries and the instance of the given node.
+        Process the result data based on the executed queries and the instance of the given node. First of all, the
+        super users are updated. If the selected node is a database node, the owners are updated. After that, the
+        function or table view permissions are updated.
         """
 
-        # If the super user check is True, the query has been executed. If the function table check is False, the
-        # related query needs to be executed.
-        if self.super_user_check is True and self.function_table_check is False:
-            # Update the super user information in the GUI.
-            self.update_super_user_information(data_list)
-            # Check for a database node: For databases, there are functions given.
+        # Check for the function and table updates. If this boolean is True, the data inside the result table needs an
+        # update.
+        if self.function_table_check is True:
+            self.update_information_table(data_list)
+
+            # End the function with a return, because now everything is updated.
+            return
+
+        # TODO: Find a way to update the super users without an overwrite by the owners
+        self.update_super_user_owner_information(data_list, "super users")
+
+        if self.database_owner_check is False and isinstance(self.selected_node, DatabaseNode):
+            self.get_database_owners()
+
+        if self.database_owner_check is True:
             if isinstance(self.selected_node, DatabaseNode):
+                self.update_super_user_owner_information(data_list, "owners")
                 self.get_function_permissions()
 
-            # For a Table or a View node, there are special permissions on the table or view.
             else:
                 self.get_table_view_permissions()
-
-        # In this case, the function for getting the function or table permissions is executed and has now a data list
-        # as result.
-        else:
-            self.update_information_table(data_list)
 
     def process_error(self, error):
         """
@@ -184,6 +194,19 @@ class PermissionInformationDialog(QDialog):
         self.function_table_check = True
         self.database_query_executor.submit_and_execute_query()
 
+    def get_database_owners(self):
+        # TODO: Docu
+        database_query = "SELECT pg_catalog.pg_get_userbyid(d.datdba) as Owner FROM pg_catalog.pg_database d " \
+                         "WHERE d.datname =%s"
+
+        database_query_parameter = [self.selected_node.name]
+
+        self.database_query_executor.database_connection = self.database_connection
+        self.database_query_executor.database_query = database_query
+        self.database_query_executor.database_query_parameter = database_query_parameter
+        self.database_owner_check = True
+        self.database_query_executor.submit_and_execute_query()
+
     def get_super_users(self):
         """
         Get the super users based on a query and with help of the database query executor.
@@ -196,32 +219,46 @@ class PermissionInformationDialog(QDialog):
         self.database_query_executor.database_query = database_query
         # Set the boolean to True, because now, the super users are loaded.
         self.super_user_check = True
+
+        # TODO: Docu (or better usage of the check boolean)
+        if not isinstance(self.selected_node, DatabaseNode):
+            self.database_owner_check = True
+
         self.database_query_executor.submit_and_execute_query()
 
-    def update_super_user_information(self, super_user_result_list):
+    def update_super_user_owner_information(self, result_list, user_type):
         """
-        Update the super user information in the GUI based on the result list after the query execution.
+        Update the super user or owner information in the GUI based on the result list after the query execution.
         """
+
+        # Check for the given user type.
+        if user_type == "super users":
+            # Use the super user label as label.
+            label = self.super_user_label
+
+        else:
+            # Use the owner label as label.
+            label = self.owner_label
 
         # If the list is longer than 1, there is a usable result.
-        if len(super_user_result_list) > 1:
-            # Define a list for super users, because only there names are necessary.
-            super_user_list = []
+        if len(result_list) > 1:
+            # Define a list for super users and owners, because only there names are necessary.
+            super_user_owner_list = []
             # Get every super user in a query.
-            for user_number in range(len(super_user_result_list)-1):
+            for user_number in range(len(result_list) - 1):
                 # Get the first parameter of the tuple with the result. This is the super user.
-                super_user_list.append(super_user_result_list[user_number+1][0])
+                super_user_owner_list.append(result_list[user_number + 1][0])
 
-            # Define a text for the GUI.
-            self.super_user_label.setText("The following super users were found: ")
+            # Define a text for the GUI with a replaceable string for the super users or the owners.
+            label.setText("The following {} were found: ".format(user_type))
 
-            # Add every super user to the label.
-            for user in super_user_list:
-                self.super_user_label.setText("{} {}".format(self.super_user_label.text(), user))
+            # Add every super user or owner to the label.
+            for user in super_user_owner_list:
+                label.setText("{} {}".format(label.text(), user))
 
-        # Show an information, if there is no super user.
+        # Show an information, if there is no super user or owner.
         else:
-            self.super_user_label.setText("No super user was found.")
+            label.setText("No {} were found.".format(user_type))
 
     def update_information_table(self, data_list):
         """
