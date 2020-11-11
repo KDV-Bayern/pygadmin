@@ -135,18 +135,33 @@ class PermissionInformationDialog(QDialog):
             # End the function with a return, because now everything is updated.
             return
 
-        # TODO: Find a way to update the super users without an overwrite by the owners
-        self.update_super_user_owner_information(data_list, "super users")
+        # If the selected node is a database node and the owner check is False, then the super user check was recently
+        # executed, so the super users needs to be updated. The other case is a table or view node as selected node. For
+        # those nodes, an owner is not given and the owner check is set to True after a super user query.
+        if (self.database_owner_check is False and isinstance(self.selected_node, DatabaseNode)) or \
+                not (self.database_owner_check is True and isinstance(self.selected_node, DatabaseNode)):
+            # Update the super users.
+            self.update_super_user_owner_information(data_list, "super users")
 
+        # If the database owner check is False and the selected node is a database node, then get the owners of the
+        # database.
         if self.database_owner_check is False and isinstance(self.selected_node, DatabaseNode):
             self.get_database_owners()
 
+        # If the owner check for the database is True, update the owner information and function permissions or the
+        # permissions for a table or view, depending on the node type.
         if self.database_owner_check is True:
+            # Proceed for a database node.
             if isinstance(self.selected_node, DatabaseNode):
+                # Update the owner information with the given data list, because at this point, the data list contains
+                # the information about the owners of the database.
                 self.update_super_user_owner_information(data_list, "owners")
+                # Get the function permissions for the database.
                 self.get_function_permissions()
 
+            # Proceed for a table or view node.
             else:
+                # Get the permissions for a table for a view.
                 self.get_table_view_permissions()
 
     def process_error(self, error):
@@ -195,15 +210,22 @@ class PermissionInformationDialog(QDialog):
         self.database_query_executor.submit_and_execute_query()
 
     def get_database_owners(self):
-        # TODO: Docu
+        """
+        Get the owners of a database based on a query and with help of the database query executor.
+        """
+
+        # The query is for getting the owners of the database with data from pg.catalog.
         database_query = "SELECT pg_catalog.pg_get_userbyid(d.datdba) as Owner FROM pg_catalog.pg_database d " \
                          "WHERE d.datname =%s"
 
+        # Use the name of the selected node as parameter.
         database_query_parameter = [self.selected_node.name]
 
+        # Use the database connection, the query and the parameter for the database query executor.
         self.database_query_executor.database_connection = self.database_connection
         self.database_query_executor.database_query = database_query
         self.database_query_executor.database_query_parameter = database_query_parameter
+        # Set the owner check to True.
         self.database_owner_check = True
         self.database_query_executor.submit_and_execute_query()
 
@@ -220,7 +242,8 @@ class PermissionInformationDialog(QDialog):
         # Set the boolean to True, because now, the super users are loaded.
         self.super_user_check = True
 
-        # TODO: Docu (or better usage of the check boolean)
+        # If the selected node is not a database node, set the database owner check to True, because in this case, a
+        # check is not necessary.
         if not isinstance(self.selected_node, DatabaseNode):
             self.database_owner_check = True
 
