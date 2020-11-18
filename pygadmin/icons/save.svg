@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg viewBox="0 0 60 60" xmlns="http://www.w3.org/2000/svg">
+ <path transform="matrix(1.0594 0 0 1.0594 -1.4619 -1.891)" d="m8.375 6.0625c-1.108 0-2 0.892-2 2v44.844c0 1.108 0.892 2 2 2h43.062c1.108 0 2-0.892 2-2v-40.25l-6.625-6.5938h-38.438z" fill="#7f7f7f" fill-rule="evenodd"/>
+ <path d="m15.914 4.6592v13.242c0 1.353 1.1888 2.4423 2.6654 2.4423h17.908c1.4766 0 2.6654-1.0893 2.6654-2.4423v-13.242h-23.239z" fill="#bfbfbf" fill-rule="evenodd" stroke="#333" stroke-width="3.125"/>
+ <path d="m20.916 7.9428h3.7888a1.3992 1.3992 0 0 1 1.3992 1.3992v6.2428a1.3992 1.3992 0 0 1 -1.3992 1.3992h-3.7888a1.3992 1.3992 0 0 1 -1.3992 -1.3992v-6.2428a1.3992 1.3992 0 0 1 1.3992 -1.3992" fill="#7f7f7f" fill-rule="evenodd" stroke="#333" stroke-width="1.875"/>
+ <path transform="matrix(1.0594 0 0 1.0594 -1.4619 -1.891)" d="m8.375 6.0625c-1.108 0-2 0.892-2 2v44.844c0 1.108 0.892 2 2 2h43.062c1.108 0 2-0.892 2-2v-40.25l-6.625-6.5938h-38.438z" fill="none" stroke="#333" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.9499"/>
+ <path d="m11.392 24.011h37.677a2.0351 2.0351 0 0 1 2.0351 2.0351v24.541a2.0351 2.0351 0 0 1 -2.0351 2.0351h-37.677a2.0351 2.0351 0 0 1 -2.0351 -2.0351v-24.541a2.0351 2.0351 0 0 1 2.0351 -2.0351" fill="#d9d9d9" fill-opacity=".75" fill-rule="evenodd" stroke="#333" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.875"/>
+</svg>

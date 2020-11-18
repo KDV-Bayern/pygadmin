@@ -1,0 +1,13 @@
+venv/
+virtualenv/
+.idea/
+__pycache__
+*dist/
+*build/
+*egg-info/
+*.tar.gz
+*.log
+connection_parameters.yaml
+app_configuration.yaml
+*.sql
+*.txt
