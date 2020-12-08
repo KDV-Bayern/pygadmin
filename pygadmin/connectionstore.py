@@ -118,6 +118,28 @@ class ConnectionStore:
             if connection_parameter_dictionary["Username"] == connection_parameter_dictionary_for_check["Username"] \
                     and connection_parameter_dictionary["Host"] == connection_parameter_dictionary_for_check["Host"] \
                     and connection_parameter_dictionary["Port"] == connection_parameter_dictionary_for_check["Port"]:
+
+                # If the two dictionaries contain a parameter for loading all databases, check them for their equality.
+                # If they are not equal, the given connection has changed.
+                if "Load All" in connection_parameter_dictionary \
+                        and "Load All" in connection_parameter_dictionary_for_check:
+                    if connection_parameter_dictionary["Load All"] \
+                            != connection_parameter_dictionary_for_check["Load All"]:
+                        return False
+
+                # If only one dictionary has a key for "Load All", there is a change in the connection parameters.
+                elif "Load All" in connection_parameter_dictionary \
+                        or "Load All" in connection_parameter_dictionary_for_check:
+                    return False
+
+                # If load all in the check dictionary is False and if the databases are not the same, the connection has
+                # changed, because only one database is used. One database is not a universal enter point in this case.
+                if "Load All" in connection_parameter_dictionary_for_check \
+                        and connection_parameter_dictionary_for_check["Load All"] is False \
+                        and connection_parameter_dictionary["Database"] \
+                        != connection_parameter_dictionary_for_check["Database"]:
+                    return False
+
                 return True
 
         # If a duplicate is not found, this else branch is active.
@@ -216,6 +238,23 @@ class ConnectionStore:
         # Return None for an index out of the bounds of the list.
         except IndexError:
             return None
+
+    def get_connection_load_all_information(self, host, database, port, username):
+        """
+        Get the load all information of one connection defined by its host, database, port and username.
+        """
+
+        # Find in all current parameters the one with the correct host, database, port and username.
+        for parameters in self.connection_parameters_yaml:
+            if host == parameters["Host"] and database == parameters["Database"] and port == parameters["Port"] \
+                    and username == parameters["Username"]:
+
+                # Try to get the parameter for loading all databases. This parameter could not exist in the dictionary.
+                try:
+                    return parameters["Load All"]
+
+                except KeyError:
+                    return False
 
 
 global_connection_store = ConnectionStore()

@@ -178,12 +178,20 @@ class TreeWidget(QWidget):
 
         # Create a server node for every connection dictionary.
         for connection_parameter in connection_parameters:
+            # Get the parameter for loading all databases.
+            try:
+                load_all_databases = connection_parameter["Load All"]
+
+            except KeyError:
+                load_all_databases = True
+
             new_node = ServerNode(name=connection_parameter["Host"],
                                   host=connection_parameter["Host"],
                                   user=connection_parameter["Username"],
                                   database=connection_parameter["Database"],
                                   port=connection_parameter["Port"],
-                                  timeout=connection_parameter["Timeout"])
+                                  timeout=connection_parameter["Timeout"],
+                                  load_all_databases=load_all_databases)
 
             # Append the node to the server list.
             server_node_list.append(new_node)
@@ -415,6 +423,13 @@ class TreeWidget(QWidget):
         the server node.
         """
 
+        # Get the parameter for loading all databases.
+        try:
+            load_all_databases = connection_parameters_for_server_node["Load All"]
+
+        except KeyError:
+            load_all_databases = True
+
         # Try to create a server node.
         try:
             # Check for a duplicate, because only one server node is necessary for one host, user and port.
@@ -424,7 +439,8 @@ class TreeWidget(QWidget):
                                          user=connection_parameters_for_server_node["Username"],
                                          database=connection_parameters_for_server_node["Database"],
                                          port=connection_parameters_for_server_node["Port"],
-                                         timeout=connection_parameters_for_server_node["Timeout"])
+                                         timeout=connection_parameters_for_server_node["Timeout"],
+                                         load_all_databases=load_all_databases)
 
             else:
                 # If there is a duplicate, set the server node as return value to None, because a server node was not

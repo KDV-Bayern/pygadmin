@@ -73,6 +73,10 @@ class ConnectionDialogWidget(QDialog):
         self.show()
 
     def init_line_edit_ui(self):
+        """
+        Initialize the line edits.
+        """
+
         # Make a list for storing the QLabels for every connection parameter. This is necessary for using the QLabel in
         # the layout setting.
         self.connection_parameter_label_list = []
@@ -213,6 +217,11 @@ class ConnectionDialogWidget(QDialog):
         # Connect the state change to a function for handling a change in the checked status of the checkbox.
         self.use_postgres_database_checkbox.stateChanged.connect(self.set_database_edit_field_to_checkbox)
 
+        # Create a checkbox for loading all databases as a configurable parameter.
+        self.load_all_databases_checkbox = QCheckBox("Load all databases")
+        # Set the default as checked.
+        self.load_all_databases_checkbox.setChecked(True)
+
         # Create a checkbox for usage in specific cases.
         self.open_at_start_checkbox = QCheckBox("Open always a connection dialog at start")
 
@@ -242,8 +251,8 @@ class ConnectionDialogWidget(QDialog):
 
             # This case happens for the label of the port.
             else:
-                # The label is placed further down, so the checkbox for the default database is placed accurate.
-                grid_layout.addWidget(self.connection_parameter_label_list[parameter_number], parameter_number + 2, 2)
+                # The label is placed further down, so the checkboxes for the database are placed accurate.
+                grid_layout.addWidget(self.connection_parameter_label_list[parameter_number], parameter_number + 3, 2)
 
         # Use an incrementer for the next for loop.
         connection_parameter_edit_incrementer = 1
@@ -259,7 +268,8 @@ class ConnectionDialogWidget(QDialog):
             if connection_parameter == "Database":
                 # Place the checkbox under the QLineEdit for the database.
                 grid_layout.addWidget(self.use_postgres_database_checkbox, connection_parameter_edit_incrementer, 3)
-                connection_parameter_edit_incrementer += 1
+                grid_layout.addWidget(self.load_all_databases_checkbox, connection_parameter_edit_incrementer + 1, 3)
+                connection_parameter_edit_incrementer += 2
 
         # The port as the parameter which belongs to this checkbox is the last one in the list for the user, so this
         # checkbox is placed below the QLineEdit for the port.
@@ -468,12 +478,14 @@ class ConnectionDialogWidget(QDialog):
 
                 return
 
-        # Define the parameter in a dictionary which is required by the connection store.
+        # Define the parameters in a dictionary which is required by the connection store.
         connection_parameters = {"Host": self.connection_parameter_edit_dictionary["Host"].text(),
                                  "Username": self.connection_parameter_edit_dictionary["Username"].text(),
                                  "Database": self.connection_parameter_edit_dictionary["Database"].text(),
                                  # The port is used as integer number, not as string.
-                                 "Port": int(self.connection_parameter_edit_dictionary["Port"].text())
+                                 "Port": int(self.connection_parameter_edit_dictionary["Port"].text()),
+                                 # Get the status for loading all databases out of the checkbox.
+                                 "Load All": self.load_all_databases_checkbox.isChecked()
                                  }
 
         return connection_parameters, connection_identifier, changed_password
@@ -860,6 +872,19 @@ class ConnectionDialogWidget(QDialog):
             self.connection_parameter_edit_dictionary["Port"].setText(
                 # Use the port as string, because all elements of the QLineEdit have to be strings.
                 str(self.selected_connection_parameters_dictionary["Port"]))
+
+            # Get the status for loading all databases for the selected connection.
+            load_all_databases = global_connection_store.get_connection_load_all_information(
+                self.selected_connection_parameters_dictionary["Host"],
+                self.selected_connection_parameters_dictionary["Database"],
+                self.selected_connection_parameters_dictionary["Port"],
+                self.selected_connection_parameters_dictionary["Username"]
+            )
+
+            # Set the status as status of the checkbox.
+            self.load_all_databases_checkbox.setChecked(load_all_databases)
+            # Save the status in the dictionary for the selected connection.
+            self.selected_connection_parameters_dictionary["Load All"] = load_all_databases
 
             # Define a password identifier for recognition in the password manager and keyring.
             password_identifier = self.selected_connection_identifier.split("/")[0]

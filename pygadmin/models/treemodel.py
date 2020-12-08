@@ -199,7 +199,7 @@ class ServerNode(AbstractBaseNode):
     Create a class for server nodes based on the class AbstractBaseNode.
     """
 
-    def __init__(self, name, host, user, port, database="postgres", timeout=1000):
+    def __init__(self, name, host, user, port, database="postgres", timeout=1000, load_all_databases=True):
         # Use the database postgres, because this database should definitely exist on a database server and is used as
         # entry point here.
         super().__init__(name, host, user, database, port, timeout)
@@ -212,8 +212,16 @@ class ServerNode(AbstractBaseNode):
             node_icon_path = os.path.join(os.path.dirname(pygadmin.__file__), "icons",
                                           "{}_valid.svg".format(self._node_type.lower()))
 
+            # If all databases should be loaded, this parameter is True. This is a default parameter.
+            if load_all_databases is True:
+                child = None
+
+            # If the parameter is not True, only one database should be loaded.
+            else:
+                child = database
+
             # Get the children with a query.
-            self.get_children_with_query()
+            self.get_children_with_query(child)
 
         else:
             # Use the server icon for a invalid connection.
@@ -232,13 +240,21 @@ class ServerNode(AbstractBaseNode):
 
         return child
 
-    def get_children_with_query(self):
+    def get_children_with_query(self, child=None):
         """
-        Get all children of the node with a database query.
+        Get all children of the node with a database query. As default, get all the children of the node, but use an
+        option for only getting one given child.
         """
 
-        # Use a query to get all children, in this case, all the database nodes.
-        self.fetch_children(DatabaseNode, "SELECT datname FROM pg_database ORDER BY datname ASC;")
+        # If one explicit child is not given, get all the children of the server node.
+        if child is None:
+            # Use a query to get all children, in this case, all the database nodes.
+            self.fetch_children(DatabaseNode, "SELECT datname FROM pg_database ORDER BY datname ASC;")
+
+        # If an explicit child is given, load the one explicit child.
+        else:
+            self.fetch_children(DatabaseNode, "SELECT datname FROM pg_database WHERE datname=%s ORDER BY datname ASC;",
+                                [child])
 
 
 class DatabaseNode(AbstractBaseNode):
