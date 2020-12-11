@@ -144,6 +144,13 @@ class EditorWidget(QWidget, SearchReplaceParent, metaclass=MetaEditor):
         self.replace_usages_shortcut = QShortcut(QKeySequence("Ctrl+R"), self)
         self.replace_usages_shortcut.activated.connect(self.open_replace_dialog)
 
+        # Create a button for exporting the result to a csv.
+        self.export_csv_button = QPushButton("Export result to .csv")
+        # Connect the button with the function for exporting and saving the csv data.
+        self.export_csv_button.clicked.connect(self.export_and_save_csv_data)
+        # Set the button as invisible as default, because at the beginning, an export is not necessary.
+        self.export_csv_button.setVisible(False)
+
         self.setGeometry(600, 600, 500, 300)
 
         self.update_window_title_and_description()
@@ -164,13 +171,15 @@ class EditorWidget(QWidget, SearchReplaceParent, metaclass=MetaEditor):
 
         # Set the input field for SQL queries as element at the top.
         grid_layout.addWidget(self.query_input_editor, 3, 0, 1, 4)
+        # Set the export button above the table view.
+        grid_layout.addWidget(self.export_csv_button, 4, 0, 1, 4)
         # Set the table view as window for results between the input field for SQL queries and the button for submitting
         # the query.
-        grid_layout.addWidget(self.table_view, 4, 0, 1, 4)
+        grid_layout.addWidget(self.table_view, 5, 0, 1, 4)
         # Set the submit button for the SQL queries as element at the bottom.
-        grid_layout.addWidget(self.submit_query_button, 5, 0, 1, 4)
+        grid_layout.addWidget(self.submit_query_button, 6, 0, 1, 4)
         # Place the stop button below the submit button.
-        grid_layout.addWidget(self.stop_query_button, 6, 0, 1, 4)
+        grid_layout.addWidget(self.stop_query_button, 7, 0, 1, 4)
 
         grid_layout.setSpacing(10)
 
@@ -254,6 +263,9 @@ class EditorWidget(QWidget, SearchReplaceParent, metaclass=MetaEditor):
         # Activate the button and the shortcut for stopping the current query.
         self.set_stop_query_element_activate(True)
 
+        # Set the button invisible during a query.
+        self.export_csv_button.setVisible(False)
+
         # Get the query for executing.
         query_to_execute = self.get_query_in_input_editor()
 
@@ -292,6 +304,9 @@ class EditorWidget(QWidget, SearchReplaceParent, metaclass=MetaEditor):
 
         # Disable the button and the short cut for stopping a query, because a query is currently not executed.
         self.set_stop_query_element_activate(False)
+
+        # Set the export button visible after a result.
+        self.export_csv_button.setVisible(True)
 
         # Check, if the command should be saved.
         if save_command:
@@ -913,4 +928,64 @@ class EditorWidget(QWidget, SearchReplaceParent, metaclass=MetaEditor):
 
         # Save the dictionary in the yaml file.
         global_command_history_store.save_command_history_in_yaml_file(command_dictionary)
+
+    def export_and_save_csv_data(self):
+        """
+        Activate the export and save of the csv data.
+        """
+
+        # Get the file name with a file dialog.
+        file_name = self.activate_file_dialog_for_csv_export()
+
+        # If the file name is None, the process of saving the file has been aborted.
+        if file_name is None:
+            # End the function with a return.
+            return
+
+        # Save the current query result data.
+        self.export_result_to_csv(file_name)
+
+    def activate_file_dialog_for_csv_export(self):
+        """
+        Create a file dialog for activating the csv export.
+        """
+
+        # Get a csv file with the default name result.csv and the file type csv.
+        file_dialog_with_name_and_type = QFileDialog.getSaveFileName(self, "Save File", "result", "CSV (*.csv)")
+
+        # Get the file name.
+        file_name = file_dialog_with_name_and_type[0]
+
+        # If the file name is not an empty string, return the file name, because in this case, the user has entered one.
+        if file_name != "":
+            return file_name
+
+        # Inform the user in the log about the abort.
+        else:
+            logging.info("The current file saving process was aborted by the user, so the current result as csv file"
+                         " is not saved.")
+
+            # Return None, because there is no file name.
+            return None
+
+    def export_result_to_csv(self, file_name):
+        """
+        Export the result data to csv with the file name. Get the data out of the table model.
+        """
+
+        # Open the given file in write mode.
+        with open(file_name, "w") as file_to_save:
+            # Get through every data row in the data list.
+            for data_row in self.table_model.data_list:
+                # Get through every value in the data row.
+                for data_value_counter in range(len(data_row)):
+                    # Write every value.
+                    file_to_save.write(str(data_row[data_value_counter]))
+
+                    # If the value is not the last one, append a comma for comma separated value.
+                    if data_value_counter != len(data_row)-1:
+                        file_to_save.write(",")
+
+                # Write a newline at the end of a data row.
+                file_to_save.write("\n")
 
