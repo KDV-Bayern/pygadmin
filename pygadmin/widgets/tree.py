@@ -10,6 +10,7 @@ from pygadmin.configurator import global_app_configurator
 from pygadmin.connectionstore import global_connection_store
 from pygadmin.models.treemodel import ServerNode, TablesNode, ViewsNode, SchemaNode, AbstractBaseNode, DatabaseNode, \
     TableNode, ViewNode
+from pygadmin.widgets.materialized_view_information import MaterializedViewInformationDialog
 from pygadmin.widgets.node_create_information import NodeCreateInformationDialog
 from pygadmin.widgets.permission_information import PermissionInformationDialog
 from pygadmin.widgets.table_edit import TableEditDialog
@@ -258,6 +259,8 @@ class TreeWidget(QWidget):
             self.context_menu.addAction(show_drop_statement_action)
             show_permission_information_action = QAction("Show Permissions", self)
             self.context_menu.addAction(show_permission_information_action)
+            show_materialized_views_action = QAction("Show Materialized Views")
+            self.context_menu.addAction(show_materialized_views_action)
 
             position_action = self.context_menu.exec_(self.tree_view.viewport().mapToGlobal(position))
 
@@ -270,6 +273,9 @@ class TreeWidget(QWidget):
 
             elif position_action == show_permission_information_action:
                 self.show_permission_dialog(current_selected_node)
+
+            elif position_action == show_materialized_views_action:
+                self.show_materialized_views_of_database_node(current_selected_node)
 
         # Check for a view node.
         if isinstance(current_selected_node, ViewNode):
@@ -965,3 +971,10 @@ class TreeWidget(QWidget):
         # the given drop statement.
         self.parent().parent().load_editor_with_connection_and_query(parameters_current_node,
                                                                      optional_close_and_drop_statement)
+
+    def show_materialized_views_of_database_node(self, current_node):
+        """
+        Show a dialog with the materialized views of the given node.
+        """
+
+        self.materialized_view_information_dialog = MaterializedViewInformationDialog(current_node)
