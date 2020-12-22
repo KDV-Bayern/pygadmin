@@ -2,6 +2,7 @@ import logging
 import re
 import datetime
 
+from PyQt5 import QtGui
 from PyQt5.Qsci import QsciScintilla
 from PyQt5.QtCore import pyqtSlot, pyqtSignal, QEvent
 from PyQt5.QtGui import QKeySequence
@@ -16,6 +17,7 @@ from pygadmin.database_query_executor import DatabaseQueryExecutor
 from pygadmin.widgets.search_replace_widget import SearchReplaceWidget
 from pygadmin.widgets.search_replace_parent import SearchReplaceParent
 from pygadmin.command_history_store import global_command_history_store
+from pygadmin.file_manager import global_file_manager
 
 
 class MetaEditor(type(QWidget), type(SearchReplaceParent)):
@@ -388,12 +390,16 @@ class EditorWidget(QWidget, SearchReplaceParent, metaclass=MetaEditor):
             self.stop_query_button.setEnabled(activation)
             self.stop_query_shortcut.setEnabled(activation)
 
-    def save_current_statement_in_file(self):
+    def save_current_statement_in_file(self, previous_file_name=None):
         """
         Save the current text/statement of the lexer as query editor in for further usage. The class-wide variable for
         the corresponding file is used as directory with file. If this variable contains its initialized value None,
         use the function for opening a file dialog.
         """
+
+        if previous_file_name is None and global_app_configurator.get_single_configuration("open_previous_files") is\
+                True:
+            previous_file_name = self.corresponding_saved_file
 
         # Check if the class-wide variable for the corresponding file is None.
         if self.corresponding_saved_file is None:
@@ -402,14 +408,33 @@ class EditorWidget(QWidget, SearchReplaceParent, metaclass=MetaEditor):
                 # End the function with a return.
                 return
 
-        # Open the file in the write mode, so every content is also overwritten.
-        with open(self.corresponding_saved_file, "w") as file_to_save:
-            # Define the current text of the query input editor as current text.
-            current_text = self.query_input_editor.text()
-            # Write the current text of the lexer as SQL editor in the file.
-            file_to_save.write(current_text)
-            # Save the current text in the class-wide current editor text.
-            self.current_editor_text = current_text
+        try:
+            # Open the file in the write mode, so every content is also overwritten.
+            with open(self.corresponding_saved_file, "w") as file_to_save:
+                # Define the current text of the query input editor as current text.
+                current_text = self.query_input_editor.text()
+                # Write the current text of the lexer as SQL editor in the file.
+                file_to_save.write(current_text)
+
+        except Exception as file_error:
+            error_text = "The file {} cannot be written with the error: {}".format(self.corresponding_saved_file,
+                                                                                   file_error)
+
+            QMessageBox.critical(self, "File Reading Error", error_text)
+            logging.critical(error_text, exc_info=True)
+
+            self.corresponding_saved_file = previous_file_name
+
+            return
+
+        if self.corresponding_saved_file != previous_file_name \
+                and global_app_configurator.get_single_configuration("open_previous_files") is True:
+            global_file_manager.delete_file(previous_file_name)
+            global_file_manager.add_new_file(self.corresponding_saved_file)
+            global_file_manager.commit_current_files_to_yaml()
+
+        # Save the current text in the class-wide current editor text.
+        self.current_editor_text = current_text
 
         # Update the current window title.
         self.update_window_title_and_description()
@@ -455,33 +480,52 @@ class EditorWidget(QWidget, SearchReplaceParent, metaclass=MetaEditor):
         # Get the file name out of the tuple.
         file_name = file_name_and_type[0]
 
+        if file_name is False:
+            logging.info("The current file opening process was aborted by the user, so the content of this file is not "
+                         "loaded.")
+
+            return False
+
+        return self.load_statement_with_file_name(file_name)
+
+    def load_statement_with_file_name(self, file_name):
         # Check for the success in form of an existing file and not an empty string.
         if file_name != "":
+            try:
+                # Open the file in reading mode.
+                with open(file_name, "r") as file_to_load:
+                    # Read the whole given file and save its text.
+                    file_text = file_to_load.read()
+
+            except Exception as file_error:
+                error_text = "The file {} cannot be loaded with the error: {}".format(file_name, file_error)
+                QMessageBox.critical(self, "File Reading Error", error_text)
+                logging.critical(error_text, exc_info=True)
+
+                return False
+
+            if global_app_configurator.get_single_configuration("open_previous_files") is True and \
+                    self.corresponding_saved_file is not None:
+                    global_file_manager.delete_file(self.corresponding_saved_file)
+
             # Save the name of the file in the class variable for the corresponding file.
             self.corresponding_saved_file = file_name
 
-            # Open the file in reading mode.
-            with open(self.corresponding_saved_file, "r") as file_to_load:
-                # Read the whole given file and save its text.
-                file_text = file_to_load.read()
-                # Show the content of the file as text in the lexer as SQL query editor.
-                self.query_input_editor.setText(file_text)
-                # Save the text of the file in the class-wide variable for the current text to check for changes and
-                # get the current state of saved/unsaved.
-                self.current_editor_text = file_text
+            if global_app_configurator.get_single_configuration("open_previous_files") is True:
+                global_file_manager.add_new_file(self.corresponding_saved_file)
+                global_file_manager.commit_current_files_to_yaml()
+
+            # Show the content of the file as text in the lexer as SQL query editor.
+            self.query_input_editor.setText(file_text)
+            # Save the text of the file in the class-wide variable for the current text to check for changes and get the
+            # current state of saved/unsaved.
+            self.current_editor_text = file_text
 
             # Update the window title
             self.update_window_title_and_description()
 
             # Report the success with a return value.
             return True
-
-        else:
-            logging.info("The current file opening process was aborted by the user, so the content of this file is not "
-                         "loaded.")
-
-            # Report the failure with a return value.
-            return False
 
     def load_file_with_potential_overwrite_in_editor(self):
         """
@@ -988,4 +1032,12 @@ class EditorWidget(QWidget, SearchReplaceParent, metaclass=MetaEditor):
 
                 # Write a newline at the end of a data row.
                 file_to_save.write("\n")
+
+    def closeEvent(self, a0: QtGui.QCloseEvent) -> None:
+        if self.corresponding_saved_file is not None \
+                and global_app_configurator.get_single_configuration("open_previous_files"):
+            global_file_manager.delete_file(self.corresponding_saved_file)
+            global_file_manager.commit_current_files_to_yaml()
+
+        self.close()
 

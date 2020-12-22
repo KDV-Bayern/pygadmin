@@ -5,8 +5,10 @@ from PyQt5.QtGui import QIcon, QPixmap
 from PyQt5.QtWidgets import QMdiArea
 from PyQt5.QtCore import pyqtSlot, pyqtSignal
 
+from pygadmin.configurator import global_app_configurator
 from pygadmin.widgets.editor import EditorWidget
 from pygadmin.connectionfactory import global_connection_factory
+from pygadmin.file_manager import global_file_manager
 
 
 class MdiArea(QMdiArea):
@@ -44,6 +46,28 @@ class MdiArea(QMdiArea):
         icon = QIcon(QPixmap(0, 0))
         # Use the empty icon as window icon, so the pygadmin logo is not in the window title bar of every editor widget.
         self.setWindowIcon(icon)
+
+        self.init_open_files()
+
+    def init_open_files(self):
+        """
+        Get the list of previous opened files of the editor out of the file manager and load them in new editor widgets.
+        """
+
+        if global_app_configurator.get_single_configuration("open_previous_files") is False:
+            return
+
+        # Get the files for opening.
+        files_to_open = global_file_manager.load_open_file_list()
+        # Delete all current files in the global file manager. They will be added after their load in the editor widget.
+        global_file_manager.delete_all_files()
+
+        # Add a widget for every file.
+        for file in files_to_open:
+            # Get a new editor.
+            new_editor = self.generate_editor_tab()
+            # Load the file in the editor.
+            new_editor.load_statement_with_file_name(file)
 
     def generate_editor_tab(self):
         """

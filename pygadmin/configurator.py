@@ -102,6 +102,13 @@ class AppConfigurator:
                 # Save the data in the configuration dictionary.
                 self.save_configuration_data()
 
+            try:
+                self.configuration_dictionary["open_previous_files"]
+
+            except KeyError:
+                self.configuration_dictionary["open_previous_files"] = True
+                self.save_configuration_data()
+
         except Exception as file_error:
             logging.error("The file {} cannot be opened and app configuration parameter cannot be loaded with the "
                           "following error: {}".format(self.yaml_app_configuration_file, file_error), exc_info=True)

@@ -102,7 +102,7 @@ class ConnectionStore:
 
         except Exception as file_error:
             logging.error("The file {} cannot be opened and database connection parameter cannot be saved with the "
-                          "following error: {}".format(self.yaml_connection_parameters_file, file_error))
+                          "following error: {}".format(self.yaml_connection_parameters_file, file_error), exc_info=True)
 
     def check_parameter_for_duplicate(self, connection_parameter_dictionary_for_check):
         """

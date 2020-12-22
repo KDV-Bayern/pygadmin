@@ -360,6 +360,14 @@ class MainWindow(QMainWindow):
 
         # Check, if the current editor widget exists.
         if current_editor_widget is not None:
+            if global_app_configurator.get_single_configuration("open_previous_files"):
+                # Get the current corresponding file name for the usage as previous file name, so an overwrite in the
+                # editor for the global file manager can be realized.
+                current_corresponding_file = current_editor_widget.corresponding_saved_file
+
+            else:
+                current_corresponding_file = None
+
             # Check the parameter for save_as. If the parameter is True, the if clause gets to the point for a new
             # file dialog. If the result of this file dialog is False, end the function with a return. In this case,
             # the process has been aborted.
@@ -368,7 +376,7 @@ class MainWindow(QMainWindow):
                 return
 
             # Save the current statement and text in the query input editor with the function of the editor widget.
-            current_editor_widget.save_current_statement_in_file()
+            current_editor_widget.save_current_statement_in_file(current_corresponding_file)
 
         # Define an else branch for error handling with a non existing current editor widget.
         else:
