@@ -7,7 +7,13 @@ from pygadmin.configurator import global_app_configurator
 
 
 class FileManager:
+    """"
+    Create a class for administrating the open files in the editor tabs. This class saves the paths of the open tabs in
+    a yaml file.
+    """
+
     def __init__(self):
+        # Define a container for the open files.
         self.open_files = []
         # Define a path for the configuration files.
         configuration_path = os.path.join(os.path.expanduser("~"), '.pygadmin')
@@ -25,40 +31,71 @@ class FileManager:
             # Create the file as an empty file for writing in it.
             open(self.open_files_file, "a")
 
+        # If the current configuration is False, delete all current files, because a storage is not necessary.
         if global_app_configurator.get_single_configuration("open_previous_files") is False:
             self.delete_all_files()
             self.commit_current_files_to_yaml()
 
     def add_new_file(self, file_name):
+        """
+        Add a new file with its name/path to the list of open files.
+        """
+
         self.open_files.append(file_name)
 
         return True
 
     def delete_file(self, file_name):
+        """
+        Delete a file with its name/path.
+        """
+
+        # Check for the existence of the file.
         if file_name not in self.open_files:
+            # If the file does not exist, return False for a failure.
             return False
 
+        # Remove the file name.
         self.open_files.remove(file_name)
 
+        # Return True for a success.
         return True
 
     def delete_all_files(self):
+        """
+        Delete all current open files with overwriting the current content of the open files list with an empty list.
+        """
+
         self.open_files = []
 
     def commit_current_files_to_yaml(self):
+        """
+        Try to save the current list in the yaml file.
+        """
+
         try:
+            # Try to open the file in writing mode.
             with open(self.open_files_file, "w") as file_data:
+                # Use a safe dump, because the file can be manually edited by a user.
                 yaml.safe_dump(self.open_files, file_data)
 
+                # Return True for a success.
                 return True
 
+        # Use the exception during the writing process for an error message.
         except Exception as file_error:
             logging.error("The file {} cannot be opened and the open files in the editor cannot be saved with the "
                           "following error: {}".format(self.open_files_file, file_error), exc_info=True)
 
+            # Return False for a failure.
             return False
 
     def load_open_file_list(self):
+        """
+        Load the content of the open files out of the yaml file. Use a try statement for a potential failure of the file
+        reading process.
+        """
+
         # Use a try statement in case of a broken .yaml file.
         try:
             # Use the read mode for getting the content of the file.

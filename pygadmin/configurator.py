@@ -102,9 +102,11 @@ class AppConfigurator:
                 # Save the data in the configuration dictionary.
                 self.save_configuration_data()
 
+            # Try to find the current configuration for opening previous files.
             try:
                 self.configuration_dictionary["open_previous_files"]
 
+            # If the configuration does not exist, set the configuration to True and save the data.
             except KeyError:
                 self.configuration_dictionary["open_previous_files"] = True
                 self.save_configuration_data()

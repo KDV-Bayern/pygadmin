@@ -394,9 +394,12 @@ class EditorWidget(QWidget, SearchReplaceParent, metaclass=MetaEditor):
         """
         Save the current text/statement of the lexer as query editor in for further usage. The class-wide variable for
         the corresponding file is used as directory with file. If this variable contains its initialized value None,
-        use the function for opening a file dialog.
+        use the function for opening a file dialog. A default parameter is used for the previous file name. In this case
+        the previous corresponding saved file is used. If a file name is given, the given one is used.
         """
 
+        # Check for the configuration and the previous file name: if the previous file name is None, get the name of the
+        # current corresponding saved file, because this one is going to be the previous one.
         if previous_file_name is None and global_app_configurator.get_single_configuration("open_previous_files") is\
                 True:
             previous_file_name = self.corresponding_saved_file
@@ -416,21 +419,31 @@ class EditorWidget(QWidget, SearchReplaceParent, metaclass=MetaEditor):
                 # Write the current text of the lexer as SQL editor in the file.
                 file_to_save.write(current_text)
 
+        # Parse the error for writing in the file.
         except Exception as file_error:
+            # Define an error text.
             error_text = "The file {} cannot be written with the error: {}".format(self.corresponding_saved_file,
                                                                                    file_error)
 
+            # Show the error to the user and save it in the log.
             QMessageBox.critical(self, "File Reading Error", error_text)
             logging.critical(error_text, exc_info=True)
 
+            # Redefine the corresponding saved file back to the previous one.
             self.corresponding_saved_file = previous_file_name
 
+            # End the function after a failure, because the following part is not necessary.
             return
 
+        # If the corresponding file name is not the previous file and the configuration for opening the previous files
+        # is True, the old file will be deleted as previous file and the new one added.
         if self.corresponding_saved_file != previous_file_name \
                 and global_app_configurator.get_single_configuration("open_previous_files") is True:
+            # Delete the previous one.
             global_file_manager.delete_file(previous_file_name)
+            # Add the new one.
             global_file_manager.add_new_file(self.corresponding_saved_file)
+            # Commit/save the change.
             global_file_manager.commit_current_files_to_yaml()
 
         # Save the current text in the class-wide current editor text.
@@ -480,30 +493,42 @@ class EditorWidget(QWidget, SearchReplaceParent, metaclass=MetaEditor):
         # Get the file name out of the tuple.
         file_name = file_name_and_type[0]
 
+        # If the file name is false, the process has been aborted.
         if file_name is False:
             logging.info("The current file opening process was aborted by the user, so the content of this file is not "
                          "loaded.")
 
+            # End the function with a return.
             return False
 
+        # Try to load the statement based on the file name.
         return self.load_statement_with_file_name(file_name)
 
     def load_statement_with_file_name(self, file_name):
+        """
+        Load the content of the file with its given name and path.
+        """
+
         # Check for the success in form of an existing file and not an empty string.
         if file_name != "":
+            # Try to open the file. This operation can fail without the correct file rights.
             try:
                 # Open the file in reading mode.
                 with open(file_name, "r") as file_to_load:
                     # Read the whole given file and save its text.
                     file_text = file_to_load.read()
 
+            # Show an error to the user, if the file reading process has failed.
             except Exception as file_error:
                 error_text = "The file {} cannot be loaded with the error: {}".format(file_name, file_error)
                 QMessageBox.critical(self, "File Reading Error", error_text)
                 logging.critical(error_text, exc_info=True)
 
+                # Return False for the error.
                 return False
 
+            # If the option for open the previous files is activated and if the current corresponding save file is not
+            # None, delete it in the file manager, because it will be replaced by a new one.
             if global_app_configurator.get_single_configuration("open_previous_files") is True and \
                     self.corresponding_saved_file is not None:
                     global_file_manager.delete_file(self.corresponding_saved_file)
@@ -511,6 +536,8 @@ class EditorWidget(QWidget, SearchReplaceParent, metaclass=MetaEditor):
             # Save the name of the file in the class variable for the corresponding file.
             self.corresponding_saved_file = file_name
 
+            # If the configuration is set, save the new corresponding save file and commit the changes to the file
+            # manager.
             if global_app_configurator.get_single_configuration("open_previous_files") is True:
                 global_file_manager.add_new_file(self.corresponding_saved_file)
                 global_file_manager.commit_current_files_to_yaml()
@@ -1034,8 +1061,13 @@ class EditorWidget(QWidget, SearchReplaceParent, metaclass=MetaEditor):
                 file_to_save.write("\n")
 
     def closeEvent(self, a0: QtGui.QCloseEvent) -> None:
+        """
+        Overwrite the close event: If the configuration for opening the previous is set and the corresponding save file
+        exists, delete it from the file manager, because it does not have to be opened after a restart of the program.
+        """
+
         if self.corresponding_saved_file is not None \
-                and global_app_configurator.get_single_configuration("open_previous_files"):
+                and global_app_configurator.get_single_configuration("open_previous_files") is True:
             global_file_manager.delete_file(self.corresponding_saved_file)
             global_file_manager.commit_current_files_to_yaml()
 

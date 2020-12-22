@@ -360,11 +360,14 @@ class MainWindow(QMainWindow):
 
         # Check, if the current editor widget exists.
         if current_editor_widget is not None:
-            if global_app_configurator.get_single_configuration("open_previous_files"):
+            # Check for the configuration settings, because getting the corresponding saved file is only necessary for
+            # the step for opening previous files.
+            if global_app_configurator.get_single_configuration("open_previous_files") is True:
                 # Get the current corresponding file name for the usage as previous file name, so an overwrite in the
                 # editor for the global file manager can be realized.
                 current_corresponding_file = current_editor_widget.corresponding_saved_file
 
+            # The corresponding file is unnecessary, if the configuration is not True.
             else:
                 current_corresponding_file = None
 

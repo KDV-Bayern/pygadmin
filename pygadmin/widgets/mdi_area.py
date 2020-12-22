@@ -52,8 +52,11 @@ class MdiArea(QMdiArea):
     def init_open_files(self):
         """
         Get the list of previous opened files of the editor out of the file manager and load them in new editor widgets.
+        This procedure will be executed, if the configuration for opening the previous files is True.
         """
 
+        # If the configuration is False, end the function with a return, so an initialization of the previous opened
+        # files is not executed.
         if global_app_configurator.get_single_configuration("open_previous_files") is False:
             return
 
