@@ -1,8 +1,7 @@
+import copy
 import os
 import csv
 import re
-
-from psycopg2 import sql
 
 from pygadmin.database_query_executor import DatabaseQueryExecutor
 from pygadmin.connectionfactory import global_connection_factory
@@ -31,8 +30,6 @@ class CSVImporter:
         self.database_query_executor = DatabaseQueryExecutor()
         # Use the given database connection for further execution of database queries on the given database.
         self.database_query_executor.database_connection = database_connection
-        self.database_query_executor.error.connect(self.print_error)
-        self.database_query_executor.result_data.connect(self.print_result)
 
     def check_existence_csv_file(self):
         """
@@ -75,13 +72,7 @@ class CSVImporter:
         assuming are NULL, INT, DECIMAL and TEXT.
         """
 
-        # If the data is larger than 100 rows, define the check limit for the first 100 rows.
-        if len(self.csv_data)-2 > 100:
-            check_limit = 100
-
-        # Define the limit based on the file length.
-        else:
-            check_limit = len(self.csv_data) - 2
+        check_limit = len(self.csv_data) - 2
 
         # Create a list for the data types.
         self.data_types = [None] * len(self.csv_data[0])
@@ -95,17 +86,16 @@ class CSVImporter:
             for check_column in range(len(current_row)):
                 # If the data type is TEXT, break, because there is nothing to change. This data type works in every
                 # case.
-                if self.data_types[check_column] == "TEXT":
-                    break
+                if self.data_types[check_column] != "TEXT":
+                    # Get the current value.
+                    value = current_row[check_column]
+                    # Get the data type of the current value.
+                    data_type = self.get_data_type(value)
 
-                # Get the current value.
-                value = current_row[check_column]
-                # Get the data type of the current value.
-                data_type = self.get_data_type(value)
-
-                # If the data type is not null, write the data type in the data type list.
-                if data_type != "NULL":
-                    self.data_types[check_column] = data_type
+                    # If the data type is not null, write the data type in the data type list. # TODO: Debug this data
+                    #   type shit
+                    if data_type != "NULL" or (self.data_types[check_column] != "REAL" and data_type == "INT"):
+                        self.data_types[check_column] = data_type
 
     def get_data_type(self, value):
         """
@@ -177,6 +167,8 @@ class CSVImporter:
             # If the name of the column should be checked, check it.
             if check_ddl:
                 current_column = self.check_ddl_parameter(current_column)
+                # Write the corrected name back in the csv data.
+                self.csv_data[0][column_count] = current_column
 
             # Define the current column with its name, its data type and its comma value.
             create_column = "{} {}{}\n".format(current_column, self.data_types[column_count], comma_value)
@@ -204,6 +196,77 @@ class CSVImporter:
             self.table_name = csv_split_list[0]
             # Check the name of the table.
             self.table_name = self.check_ddl_parameter(self.table_name)
+
+    def create_insert_queries(self):
+        # TODO: docu
+        work_data_list = copy.copy(self.csv_data)
+        del work_data_list[0]
+
+        chunk_size = 5000
+
+        work_data_list = [work_data_list[i * chunk_size:(i+1) * chunk_size]
+                          for i in range((len(work_data_list) + chunk_size - 1) // chunk_size)]
+
+        for sub_data_list in work_data_list:
+            insert_query = self.create_insert_query_begin()
+            parameter_list = []
+
+            for row_count in range(len(sub_data_list)):
+                value_query = "("
+                row = sub_data_list[row_count]
+                for value_count in range(len(row)):
+                    if value_count != len(row)-1:
+                        comma_value = ", "
+
+                    else:
+                        comma_value = ""
+
+                    value_query = "{}%s{}".format(value_query, comma_value)
+                    value = row[value_count]
+
+                    if value == self.null_type:
+                        value = None
+
+                    parameter_list.append(value)
+
+                if row_count != len(sub_data_list)-1:
+                    comma_value = ", "
+
+                else:
+                    comma_value = ";"
+
+                value_query = "{}){}".format(value_query, comma_value)
+
+                insert_query = "{}{}".format(insert_query, value_query)
+
+            self.execute_insert_query(insert_query, parameter_list)
+
+    def execute_insert_query(self, insert_query, insert_parameters):
+        # TODO: docu
+        self.database_query_executor.database_query = insert_query
+        self.database_query_executor.database_query_parameter = insert_parameters
+        self.database_query_executor.submit_and_execute_query()
+
+    def create_insert_query_begin(self):
+        # TODO: docu
+        insert_query = "INSERT INTO {} (".format(self.table_name)
+
+        header = self.csv_data[0]
+
+        for column_count in range(len(header)):
+            # Define the comma to set after the definition of the column.
+            if column_count != len(header)-1:
+                comma_value = ", "
+
+            else:
+                comma_value = ""
+
+            insert_column = "{}{}".format(header[column_count], comma_value)
+            insert_query = "{}{}".format(insert_query, insert_column)
+
+        insert_query = "{}) VALUES ".format(insert_query)
+
+        return insert_query
 
     @staticmethod
     def check_ddl_parameter(parameter):
@@ -238,9 +301,10 @@ class CSVImporter:
 
 if __name__ == "__main__":
     csv_importer = CSVImporter(global_connection_factory.get_database_connection("localhost", "testuser", "testdb"),
-                               "/home/sqlea/test.csv", delimiter=";", table_name="new_test_table")
+                               "/home/sqlea/fl.csv", delimiter=";", table_name="new_test_table")
     if csv_importer.check_existence_csv_file() is True:
         csv_importer.parse_csv_file()
         csv_importer.assume_data_types()
         csv_importer.get_create_statement()
+        csv_importer.create_insert_queries()
 
