@@ -4,7 +4,6 @@ import csv
 import re
 
 from pygadmin.database_query_executor import DatabaseQueryExecutor
-from pygadmin.connectionfactory import global_connection_factory
 
 
 class CSVImporter:
@@ -13,7 +12,7 @@ class CSVImporter:
     assumed data types and inserting all the data.
     """
 
-    def __init__(self, database_connection, csv_file, delimiter=",", null_type="NULL", table_name=None):
+    def __init__(self, database_connection, csv_file, delimiter=",", null_type="", table_name=None):
         # Use the csv file for loading the relevant data.
         self.csv_file = csv_file
         # Use a delimiter for the csv file, not necessarily ",".
@@ -155,7 +154,7 @@ class CSVImporter:
         # Get the table name, so the table name can be used in the create statement.
         self.get_table_name()
         # Add the table name to the query.
-        create_table_query = "CREATE TABLE {} (".format(self.table_name)
+        create_table_query = "CREATE TABLE {} (\n".format(self.table_name)
 
         # Get the header as start of the csv data, because the columns are defined here.
         header = self.csv_data[0]
@@ -335,27 +334,3 @@ class CSVImporter:
             parameter = '"{}"'.format(parameter)
 
         return parameter
-
-    def do_all_the_stuff(self):
-        """
-        Normal persons would call this function "main". This function is only a placeholder to remember me, that I'm
-        going to need a function for doing all the relevant csv stuff, so the user/rest of the program needs only a
-        database connection and a name, function call, boom, everything is working (or not, that's a case for an error).
-        So, strong TODO
-        """
-
-        pass
-
-
-# TODO: Check for file existence, parse file with error handling, assume the data type on a very basic level, check for
-#  create table or insert in existing table, (create table and) insert
-
-if __name__ == "__main__":
-    csv_importer = CSVImporter(global_connection_factory.get_database_connection("localhost", "testuser", "testdb"),
-                               "/home/sqlea/fl.csv", delimiter=";", table_name="new_test_table")
-    if csv_importer.check_existence_csv_file() is True:
-        csv_importer.parse_csv_file()
-        csv_importer.assume_data_types()
-        csv_importer.get_create_statement()
-        csv_importer.create_and_execute_insert_queries()
-
