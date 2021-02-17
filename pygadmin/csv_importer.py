@@ -67,12 +67,19 @@ class CSVImporter:
 
     def assume_data_types(self):
         """
-        Assume the data types of the rows in the csv file based on the given values. Check the first 100 values, so the
-        overhead is small, but the check data is large enough to get a correct assumption. The supported data types for
-        assuming are NULL, INT, DECIMAL and TEXT.
+        Assume the data types of the rows in the csv file based on the given values. Check the first 10000 values, so
+        the overhead is small, but the check data is large enough to get a correct assumption. The supported data types
+        for assuming are NULL, INT, DECIMAL and TEXT.
         """
 
-        check_limit = len(self.csv_data) - 2
+        # Check the of the csv data without the header.
+        if len(self.csv_data) - 2 > 10000:
+            # Set the limit to 10000 in case of a larger file.
+            check_limit = 10000
+
+        # Set the limit to the data size of the file.
+        else:
+            check_limit = len(self.csv_data) - 2
 
         # Create a list for the data types.
         self.data_types = [None] * len(self.csv_data[0])
@@ -84,17 +91,19 @@ class CSVImporter:
 
             # Check the data type of the current column.
             for check_column in range(len(current_row)):
+                # Get the old/previous data type for comparison.
+                old_data_type = self.data_types[check_column]
                 # If the data type is TEXT, break, because there is nothing to change. This data type works in every
                 # case.
-                if self.data_types[check_column] != "TEXT":
+                if old_data_type != "TEXT":
                     # Get the current value.
                     value = current_row[check_column]
                     # Get the data type of the current value.
                     data_type = self.get_data_type(value)
 
-                    # If the data type is not null, write the data type in the data type list. # TODO: Debug this data
-                    #   type shit
-                    if data_type != "NULL" or (self.data_types[check_column] != "REAL" and data_type == "INT"):
+                    # If the data type is not null, write the data type in the data type list. Converting REAL to INT is
+                    # not allowed.
+                    if data_type != "NULL" and (not (old_data_type == "REAL" and data_type == "INT")):
                         self.data_types[check_column] = data_type
 
     def get_data_type(self, value):
@@ -197,60 +206,99 @@ class CSVImporter:
             # Check the name of the table.
             self.table_name = self.check_ddl_parameter(self.table_name)
 
-    def create_insert_queries(self):
-        # TODO: docu
+    def create_and_execute_insert_queries(self):
+        """
+        Create the necessary queries for inserting the data in the table based on splitting the data in sub lists for
+        improving the performance of the insert. The attribute of the class for the csv data should not be harmed, so
+        a copy is used for the working process. Execute the queries after their creation.
+        """
+
+        # Copy the data list, so the work data list can be used and modified.
         work_data_list = copy.copy(self.csv_data)
+        # Delete the header, because the header does not have to be inserted.
         del work_data_list[0]
 
+        # Define a chunk size for separation the work data list in those chunks. 5000 is an acceptable value between the
+        # two extreme cases (inserting all data in one INSERT or inserting every row/list with an own INSERT).
         chunk_size = 5000
 
+        # Split the work data list in lists with the given chunk size.
         work_data_list = [work_data_list[i * chunk_size:(i+1) * chunk_size]
                           for i in range((len(work_data_list) + chunk_size - 1) // chunk_size)]
 
+        # Iterate over every sub list in the work data list. Those sub lists contain their separate chunk of data for
+        # inserting.
         for sub_data_list in work_data_list:
+            # Get the begin of an insert query.
             insert_query = self.create_insert_query_begin()
+            # Define a list for the parameters, because the data is used as parameter in the query.
             parameter_list = []
 
+            # Get one single row, so this row (count) describes exactly one row of data.
             for row_count in range(len(sub_data_list)):
+                # Begin the query with ( for the correct SQL syntax.
                 value_query = "("
+                # Get the row with the row count.
                 row = sub_data_list[row_count]
+                # Iterate over the value count, so it is now possible to get every single value.
                 for value_count in range(len(row)):
+                    # Check the comma value: an INSERT needs commas for separating the values, but only, if a new value
+                    # follows, which is the case for every value except the last one.
                     if value_count != len(row)-1:
                         comma_value = ", "
 
                     else:
                         comma_value = ""
 
+                    # Put the value query together. "%s" is used as placeholder for the parameter.
                     value_query = "{}%s{}".format(value_query, comma_value)
+                    # Get the actual value.
                     value = row[value_count]
 
+                    # If the value is equal to the predefined null value/type, the value is set to None. This is
+                    # interpreted as NULL by psycopg2.
                     if value == self.null_type:
                         value = None
 
+                    # Append the value to the list of parameters.
                     parameter_list.append(value)
 
+                # If the current row is not the last one in the sub data list, append a comma for separating the
+                # different value lists per insert.
                 if row_count != len(sub_data_list)-1:
                     comma_value = ", "
 
+                # If the value is the last one, use a semicolon for the end of the query.
                 else:
                     comma_value = ";"
 
+                # Put the value query together.
                 value_query = "{}){}".format(value_query, comma_value)
 
+                # Combine the insert query with the value query.
                 insert_query = "{}{}".format(insert_query, value_query)
 
+            # Execute the insert query.
             self.execute_insert_query(insert_query, parameter_list)
 
     def execute_insert_query(self, insert_query, insert_parameters):
-        # TODO: docu
+        """
+        Get the query and parameters for an insert and execute it with the database query executor.
+        """
+
         self.database_query_executor.database_query = insert_query
         self.database_query_executor.database_query_parameter = insert_parameters
         self.database_query_executor.submit_and_execute_query()
 
     def create_insert_query_begin(self):
-        # TODO: docu
+        """
+        Create the begin of an insert query.
+        """
+
+        # Begin with the INSERT INTO and the checked table name, so an formatted input is okay.
         insert_query = "INSERT INTO {} (".format(self.table_name)
 
+        # Get the header for the column names.
         header = self.csv_data[0]
 
         for column_count in range(len(header)):
@@ -261,11 +309,14 @@ class CSVImporter:
             else:
                 comma_value = ""
 
+            # Insert the column name.
             insert_column = "{}{}".format(header[column_count], comma_value)
             insert_query = "{}{}".format(insert_query, insert_column)
 
+        # Put the query together and append the VALUES, so the next step is adding the data for inserting.
         insert_query = "{}) VALUES ".format(insert_query)
 
+        # Return the begin of the query.
         return insert_query
 
     @staticmethod
@@ -306,5 +357,5 @@ if __name__ == "__main__":
         csv_importer.parse_csv_file()
         csv_importer.assume_data_types()
         csv_importer.get_create_statement()
-        csv_importer.create_insert_queries()
+        csv_importer.create_and_execute_insert_queries()
 

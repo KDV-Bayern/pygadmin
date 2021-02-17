@@ -60,7 +60,7 @@ class CSVImportDialog(QDialog):
 
     def insert_data(self):
         begin = time.time()
-        self.csv_importer.create_insert_queries()
+        self.csv_importer.create_and_execute_insert_queries()
         end = time.time()
         print("Runtime: {}".format(end-begin))
 
