@@ -1,4 +1,5 @@
 import copy
+import logging
 import os
 import csv
 import re
@@ -90,20 +91,31 @@ class CSVImporter:
 
             # Check the data type of the current column.
             for check_column in range(len(current_row)):
-                # Get the old/previous data type for comparison.
-                old_data_type = self.data_types[check_column]
-                # If the data type is TEXT, break, because there is nothing to change. This data type works in every
-                # case.
-                if old_data_type != "TEXT":
-                    # Get the current value.
-                    value = current_row[check_column]
-                    # Get the data type of the current value.
-                    data_type = self.get_data_type(value)
+                # Try to parse and assume the data types. This process could fail caused by a wrong delimiter for the
+                # csv file, so the list of data types has a completely different length, causing an error.
+                try:
+                    # Get the old/previous data type for comparison.
+                    old_data_type = self.data_types[check_column]
+                    # If the data type is TEXT, break, because there is nothing to change. This data type works in every
+                    # case.
+                    if old_data_type != "TEXT":
+                        # Get the current value.
+                        value = current_row[check_column]
+                        # Get the data type of the current value.
+                        data_type = self.get_data_type(value)
 
-                    # If the data type is not null, write the data type in the data type list. Converting REAL to INT is
-                    # not allowed.
-                    if data_type != "NULL" and (not (old_data_type == "REAL" and data_type == "INT")):
-                        self.data_types[check_column] = data_type
+                        # If the data type is not null, write the data type in the data type list. Converting REAL to
+                        # INT is not allowed.
+                        if data_type != "NULL" and (not (old_data_type == "REAL" and data_type == "INT")):
+                            self.data_types[check_column] = data_type
+
+                # Catch the index error of data type list, caused by a wrong delimiter in the csv file.
+                except IndexError:
+                    # Log the incident.
+                    logging.critical("The data types can not be assumed based on an index error. This is caused by a "
+                                     "wrong delimiter for the csv file.", exc_info=True)
+                    # Raise the exception for further handling, for example in the user interface.
+                    raise
 
     def get_data_type(self, value):
         """
@@ -131,18 +143,18 @@ class CSVImporter:
         # Return TEXT, if a match could not be made.
         return "TEXT"
 
-    def create_table_for_csv_data(self):
+    def create_table_for_csv_data(self, create_statement=None):
         """
-        Create the table to store the csv data in the database.
+        Create the table to store the csv data in the database. Set the default parameter for the create statement to
+        None, so a statement is created out of the given csv file. If the parameter is used, a new create statement can
+        be set, for example by a user.
         """
 
-        # Get the create statement of the table.
-        create_statement = self.get_create_statement()
+        if create_statement is None:
+            # Get the create statement of the table.
+            create_statement = self.get_create_statement()
 
-        # Assign the create statement as query to the table.
-        self.database_query_executor.database_query = create_statement
-        # Execute!
-        self.database_query_executor.submit_and_execute_query()
+        self.execute_query(create_statement)
 
     def get_create_statement(self, check_ddl=True):
         """
@@ -278,16 +290,7 @@ class CSVImporter:
                 insert_query = "{}{}".format(insert_query, value_query)
 
             # Execute the insert query.
-            self.execute_insert_query(insert_query, parameter_list)
-
-    def execute_insert_query(self, insert_query, insert_parameters):
-        """
-        Get the query and parameters for an insert and execute it with the database query executor.
-        """
-
-        self.database_query_executor.database_query = insert_query
-        self.database_query_executor.database_query_parameter = insert_parameters
-        self.database_query_executor.submit_and_execute_query()
+            self.execute_query(insert_query, parameter_list)
 
     def create_insert_query_begin(self):
         """
@@ -317,6 +320,46 @@ class CSVImporter:
 
         # Return the begin of the query.
         return insert_query
+
+    def drop_table(self, table_name=None):
+        """
+        Drop the given table, defined by the table name. If the table name stays None as default parameter, use the
+        deduced name.
+        """
+
+        # Get the statement.
+        drop_statement = self.get_drop_statement(table_name)
+        # Execute the query.
+        self.execute_query(drop_statement)
+
+    def get_drop_statement(self, table_name=None):
+        """
+        Create the drop statement for the existing table.
+        """
+
+        # If the given table name is None, use the attribute of the class, defined by the name of the csv file.
+        if table_name is None:
+            self.get_table_name()
+            table_name = self.table_name
+
+        # Create the statement.
+        drop_statement = "DROP TABLE {};".format(table_name)
+
+        # Return the statement.
+        return drop_statement
+
+    def execute_query(self, query, parameters=None):
+        """
+        Execute the given query with the parameters. If the parameters are not given, the default None is used, so only
+        the query is executed.
+        """
+
+        # Assign the query as database query for the executor.
+        self.database_query_executor.database_query = query
+        # Use the parameters.
+        self.database_query_executor.database_query_parameter = parameters
+        # Execute!
+        self.database_query_executor.submit_and_execute_query()
 
     @staticmethod
     def check_ddl_parameter(parameter):
