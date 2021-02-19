@@ -1,10 +1,11 @@
-import sys
-import time
-
-from PyQt5.QtWidgets import QDialog, QGridLayout, QLabel, QApplication, QPushButton, QMessageBox, QLineEdit, \
+from PyQt5.QtWidgets import QDialog, QGridLayout, QLabel, QPushButton, QMessageBox, QLineEdit, \
     QInputDialog
 
-from pygadmin.connectionfactory import global_connection_factory
+from pygadmin.csv_importer import CSVImporter
+from pygadmin.widgets.widget_icon_adder import IconAdder
+from PyQt5.QtWidgets import QDialog, QGridLayout, QLabel, QPushButton, QMessageBox, QLineEdit, \
+    QInputDialog
+
 from pygadmin.csv_importer import CSVImporter
 from pygadmin.widgets.widget_icon_adder import IconAdder
 
@@ -56,7 +57,6 @@ class CSVImportDialog(QDialog):
             self.init_ui()
             # Initialize the grid layout.
             self.init_grid()
-            # TODO: Better functions for connecting for the signals of the database query executor.
 
         # Show an error for a non existing file.
         else:
@@ -145,16 +145,29 @@ class CSVImportDialog(QDialog):
 
         # Create a drop button for dropping the table.
         self.drop_button = QPushButton("Drop Table")
-        # Connect the button with the signal for actually dropping the table.
+        # Connect the button with the function for actually dropping the table.
         self.drop_button.clicked.connect(self.drop_table)
 
-        # Connect the signals for the result data and the error with functions for processing.
-        self.csv_importer.database_query_executor.result_data.connect(self.process_create_drop_success)
-        self.csv_importer.database_query_executor.error.connect(self.process_create_drop_error)
-
-        # Under construction TODO
-        self.insert_button = QPushButton("Insert")
+        # Create an insert button for inserting the data.
+        self.insert_button = QPushButton("Insert Data")
+        # Connect the button with the function for inserting the data.
         self.insert_button.clicked.connect(self.insert_data)
+
+        self.create_and_insert_button = QPushButton("Create Table and Insert Data")
+        self.create_and_insert_button.clicked.connect(self.create_table_and_insert_data)
+
+        # Define two parameters/attributes for controlling the number of expected inserts.
+        self.number_of_inserts = 0
+        self.executed_inserts = 0
+
+        # Define an attribute for the usage after a create statement: If the attribute is True, the data is inserted
+        # right after the creation of the table.
+        self.proceed_with_insert = False
+
+        # Connect the signals for the result data and the error with functions for processing.
+        self.csv_importer.database_query_executor.result_data.connect(self.process_sql_success)
+        self.csv_importer.database_query_executor.error.connect(self.process_sql_error)
+
         self.show()
 
     def init_grid(self):
@@ -185,10 +198,13 @@ class CSVImportDialog(QDialog):
 
         # Place the close label at the end of CREATE.
         grid_layout.addWidget(self.close_label, line_edit_count, 0)
-        # Set the create button at the end of the statement, created by the line edits.
-        grid_layout.addWidget(self.create_button, line_edit_count, 1)
-        # Set the drop button on the right of the widget.
-        grid_layout.addWidget(self.drop_button, 0, 4)
+        # Set the create and insert button at the end of the statement, created by the line edits.
+        grid_layout.addWidget(self.create_and_insert_button, line_edit_count, 1)
+        # Set the drop button on the right of the create and insert button.
+        grid_layout.addWidget(self.drop_button, line_edit_count, 2)
+        # Set the insert and the create button under the row with the create and insert button.
+        grid_layout.addWidget(self.insert_button, line_edit_count+1, 0)
+        grid_layout.addWidget(self.create_button, line_edit_count+1, 1)
 
         # Set the spacing of the grid.
         grid_layout.setSpacing(10)
@@ -218,8 +234,6 @@ class CSVImportDialog(QDialog):
         """
 
         create_statement = self.get_user_create_statement()
-        self.csv_importer.database_query_executor.result_data.connect(self.process_create_drop_success)
-        self.csv_importer.database_query_executor.error.connect(self.process_create_drop_error)
         self.csv_importer.create_table_for_csv_data(create_statement)
 
     def get_user_create_statement(self):
@@ -267,32 +281,92 @@ class CSVImportDialog(QDialog):
         table_name = self.table_name_line_edit.text()
         self.csv_importer.drop_table(table_name)
 
-    def process_create_drop_success(self, result):
+    def process_sql_success(self, result):
         """
         Process the result of the table creation or dropping.
         """
 
         # The parameter result contains a list. If the list is not empty, a success can be processed.
         if result:
-            QMessageBox.information(self, "Create Success", "The result is {}".format(result))
+            # Get the title of the result list for further usage as QMessageBox title.
+            title = result[0][0]
+            # A data definition query has been executed.
+            if self.number_of_inserts == 0 and self.executed_inserts == 0:
+                # Get the message.
+                message = result[1][0]
+                # Show the title and the message to the user.
+                QMessageBox.information(self, title, message)
 
-    def process_create_drop_error(self, result):
+                # Check the attribute for proceeding with the insert of the data.
+                if self.proceed_with_insert is True:
+                    # Insert the data of the csv file.
+                    self.insert_data()
+
+            # The inserts are not done yet.
+            elif self.number_of_inserts != self.executed_inserts:
+                # Increment the insert counter for executed inserts.
+                self.executed_inserts += 1
+
+            # The inserts are done.
+            elif self.number_of_inserts == self.executed_inserts:
+                # Show the success to the user.
+                QMessageBox.information(self, title, "The data has been inserted successfully.")
+                # Reset the number of excepted inserts and the number of executed inserts back to 0.
+                self.number_of_inserts = 0
+                self.executed_inserts = 0
+
+    def process_sql_error(self, result):
         """
-        Process the error during the create or drop process.
+        Process the SQL error after the try to execute a query.
         """
 
-        QMessageBox.critical(self, "Create Error", "An error occurred during the create process: {}".format(result))
+        # Get the title of the error message.
+        title = result[0]
+        # Get the error message.
+        message = result[1]
 
-    # under construction: TODO
+        # This function defines the error case, so if a table should have been created and the data inserted, set the
+        # attribute for proceeding with an insert to False, which is the default value for this attribute.
+        if self.proceed_with_insert is True:
+            self.proceed_with_insert = False
+
+        # A data definition query should have been executed.
+        if self.number_of_inserts == 0 and self.executed_inserts == 0:
+            QMessageBox.critical(self, title, message)
+
+        # The inserts are not done yet.
+        elif self.number_of_inserts != self.executed_inserts:
+            # Increment the counter for one processed insert.
+            self.executed_inserts += 1
+
+        # The inserts are done.
+        elif self.number_of_inserts == self.executed_inserts:
+            # Show the insert error
+            QMessageBox.critical(self, "Insert Error", "An error occurred during the insert: {}".format(message))
+            # Reset the number of excepted inserts and the number of executed inserts back to 0.
+            self.number_of_inserts = 0
+            self.executed_inserts = 0
+
     def insert_data(self):
-        begin = time.time()
-        self.csv_importer.create_and_execute_insert_queries()
-        end = time.time()
-        print("Runtime: {}".format(end - begin))
+        """
+        Insert the data of the csv file into the given table.
+        """
 
+        self.proceed_with_insert = False
 
-if __name__ == "__main__":
-    app = QApplication(sys.argv)
-    csv_import = CSVImportDialog(global_connection_factory.get_database_connection("localhost", "testuser", "testdb"),
-                                 "/home/sqlea/test.csv")
-    sys.exit(app.exec())
+        # Get the table name out of the line edit.
+        table_name = self.table_name_line_edit.text()
+        # Calculate the expected number of inserts by the chunk size of the csv importer.
+        self.number_of_inserts = (len(self.csv_importer.csv_data) - 2) // self.csv_importer.chunk_size
+        # Start the insert process.
+        self.csv_importer.create_and_execute_insert_queries(table_name)
+
+    def create_table_and_insert_data(self):
+        """
+        Create the table and insert the data.
+        """
+
+        # Set the attribute for inserting the data to True.
+        self.proceed_with_insert = True
+        # Create the table. The insert will be triggered, if the create statement is successful.
+        self.create_table()

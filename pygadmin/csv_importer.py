@@ -30,6 +30,10 @@ class CSVImporter:
         self.database_query_executor = DatabaseQueryExecutor()
         # Use the given database connection for further execution of database queries on the given database.
         self.database_query_executor.database_connection = database_connection
+        # Define a chunk size for splitting the data in separate chunks for inserting later. 5000 is an acceptable value
+        # between the two extreme cases (inserting all data in one INSERT or inserting every row/list with an own
+        # INSERT). A class attribute is chosen for potential (read) access.
+        self.chunk_size = 5000
 
     def check_existence_csv_file(self):
         """
@@ -217,31 +221,32 @@ class CSVImporter:
             # Check the name of the table.
             self.table_name = self.check_ddl_parameter(self.table_name)
 
-    def create_and_execute_insert_queries(self):
+    def create_and_execute_insert_queries(self, table_name=None):
         """
         Create the necessary queries for inserting the data in the table based on splitting the data in sub lists for
         improving the performance of the insert. The attribute of the class for the csv data should not be harmed, so
-        a copy is used for the working process. Execute the queries after their creation.
+        a copy is used for the working process. The default for the table name is None, so the attribute of the class
+        for the table name is used. Execute the queries after their creation.
         """
+
+        # Use the table name defined by the class/csv file as table name.
+        if table_name is None:
+            table_name = self.table_name
 
         # Copy the data list, so the work data list can be used and modified.
         work_data_list = copy.copy(self.csv_data)
         # Delete the header, because the header does not have to be inserted.
         del work_data_list[0]
 
-        # Define a chunk size for separation the work data list in those chunks. 5000 is an acceptable value between the
-        # two extreme cases (inserting all data in one INSERT or inserting every row/list with an own INSERT).
-        chunk_size = 5000
-
         # Split the work data list in lists with the given chunk size.
-        work_data_list = [work_data_list[i * chunk_size:(i+1) * chunk_size]
-                          for i in range((len(work_data_list) + chunk_size - 1) // chunk_size)]
+        work_data_list = [work_data_list[i * self.chunk_size:(i+1) * self.chunk_size]
+                          for i in range((len(work_data_list) + self.chunk_size - 1) // self.chunk_size)]
 
         # Iterate over every sub list in the work data list. Those sub lists contain their separate chunk of data for
         # inserting.
         for sub_data_list in work_data_list:
-            # Get the begin of an insert query.
-            insert_query = self.create_insert_query_begin()
+            # Get the begin of an insert query with the given table name.
+            insert_query = self.create_insert_query_begin(table_name)
             # Define a list for the parameters, because the data is used as parameter in the query.
             parameter_list = []
 
@@ -292,13 +297,17 @@ class CSVImporter:
             # Execute the insert query.
             self.execute_query(insert_query, parameter_list)
 
-    def create_insert_query_begin(self):
+    def create_insert_query_begin(self, table_name=None):
         """
-        Create the begin of an insert query.
+        Create the begin of an insert query. The default table name is None, so the name of the csv file is used.
         """
 
+        # Get the default name, the name of the csv file.
+        if table_name is None:
+            table_name = self.table_name
+
         # Begin with the INSERT INTO and the checked table name, so an formatted input is okay.
-        insert_query = "INSERT INTO {} (".format(self.table_name)
+        insert_query = "INSERT INTO {} (".format(table_name)
 
         # Get the header for the column names.
         header = self.csv_data[0]

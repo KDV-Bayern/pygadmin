@@ -3,7 +3,7 @@ import logging
 
 from PyQt5 import QtCore
 from PyQt5.QtGui import QIcon, QPixmap
-from PyQt5.QtWidgets import QMainWindow, QAction, QToolBar, QMessageBox, QMenu
+from PyQt5.QtWidgets import QMainWindow, QAction, QToolBar, QMessageBox, QMenu, QFileDialog
 from PyQt5.QtCore import Qt, pyqtSlot
 
 import pygadmin
@@ -140,6 +140,7 @@ class MainWindow(QMainWindow):
         self.add_action_to_menu_bar("Change Database Connections", self.activate_new_connection_dialog)
         # Create an action for showing the current history.
         self.add_action_to_menu_bar("Show History", self.activate_command_history_dialog)
+        self.add_action_to_menu_bar("Import CSV", self.activate_csv_import)
         # Create a sub menu for settings.
         settings_menu = QMenu("Settings", self)
         # Add the sub menu to the edit menu point.
@@ -464,6 +465,20 @@ class MainWindow(QMainWindow):
 
         # Set the text to the query input editor of the editor widget.
         empty_editor_widget.query_input_editor.setText(command)
+
+    def activate_csv_import(self):
+        """
+        Activate the necessary steps for starting the csv import dialog. This process includes getting the csv file by
+        a file dialog and getting the current database connection. TODO: Think about a better place for the importer or
+         error for missing database connection.
+        """
+
+        file_name_and_type = QFileDialog.getOpenFileName(self, "Open CSV", "", "CSV (*.csv)")
+        file_name = file_name_and_type[0]
+
+        # The user has aborted the process, so the file name is an empty string, which is useless.
+        if file_name == "":
+            return
 
     @pyqtSlot(str)
     def show_status_bar_message(self, message):
