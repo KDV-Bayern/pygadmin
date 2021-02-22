@@ -271,15 +271,17 @@ class EditorWidget(QWidget, SearchReplaceParent, metaclass=MetaEditor):
         # Get the query for executing.
         query_to_execute = self.get_query_in_input_editor()
 
-        # Define the query to execute as database query of the executor.
-        self.database_query_executor.database_query = query_to_execute
-        # Submit and execute the query with the given parameters.
-        self.database_query_executor.submit_and_execute_query()
+        # If the query is not None for an error or abort during the check process, continue.
+        if query_to_execute is not None:
+            # Define the query to execute as database query of the executor.
+            self.database_query_executor.database_query = query_to_execute
+            # Submit and execute the query with the given parameters.
+            self.database_query_executor.submit_and_execute_query()
 
-    def get_query_in_input_editor(self):
+    def get_query_in_input_editor(self, check=True):
         """
         Get the current query out of the input editor. If there is a selected part of the text in the editor, then use
-        only the selected text as query.
+        only the selected text as query. Set the check to True as default, so the query is preprocessed.
         """
 
         # If the selected text contains an empty string, there is not any selected text.
@@ -287,10 +289,56 @@ class EditorWidget(QWidget, SearchReplaceParent, metaclass=MetaEditor):
             # The query to execute is the whole text in the input editor.
             query_to_execute = self.query_input_editor.text()
 
+        # Use the current selection in the editor.
         else:
             query_to_execute = self.query_input_editor.selectedText()
 
+        # If the check parameter is True, check the query.
+        if check is True:
+            # If the check returns a problem, set the query to None.
+            if self.check_current_query_for_single_update_delete(query_to_execute) is False:
+                query_to_execute = None
+
         return query_to_execute
+
+    def check_current_query_for_single_update_delete(self, query):
+        """
+        Check the given query for a single UPDATE or DELETE without any WHERE. This would execute the DELETE or UPDATE
+        for every row in the table. So this function is for warning the user in case they would like to execute such a
+        query.
+        """
+
+        # Check the global app configurator, if the user has set the configuration to False, so they does not want any
+        # warnings. In this case, stop the check with a return.
+        if global_app_configurator.get_single_configuration("check_where") is False:
+            return
+
+        # Set the whole query to lower case, so it is easier to check, if there is an UPDATE or DELETE without a WHERE.
+        query = query.lower()
+        # Check the query: If the query contains a delete or an update, there could be a problem. If the query does not
+        # contain a where, there is a problem.
+        if ("delete" in query or "update" in query) and "where" not in query:
+            # Ask the user how to proceed.
+            question_message_box = QMessageBox.question(self, "Query without WHERE", "Your query contains an UPDATE"
+                                                                                     " or a DELETE without a WHERE."
+                                                                                     "Proceed anyway? (Ignore for "
+                                                                                     "ignoring those warnings in "
+                                                                                     "the future)",
+                                                        QMessageBox.Yes | QMessageBox.No | QMessageBox.Ignore)
+
+            # Proceed normally for a yes.
+            if question_message_box == QMessageBox.Yes:
+                return True
+
+            # Stop the process for a no.
+            elif question_message_box == QMessageBox.No:
+                return False
+
+            # Proceed with setting the configuration and normally for an ignore.
+            elif question_message_box == QMessageBox.Ignore:
+                global_app_configurator.set_single_configuration("check_where", False)
+                global_app_configurator.save_configuration_data()
+                return True
 
     def refresh_table_model(self, result_data_list, save_command=True):
         """
@@ -400,7 +448,7 @@ class EditorWidget(QWidget, SearchReplaceParent, metaclass=MetaEditor):
 
         # Check for the configuration and the previous file name: if the previous file name is None, get the name of the
         # current corresponding saved file, because this one is going to be the previous one.
-        if previous_file_name is None and global_app_configurator.get_single_configuration("open_previous_files") is\
+        if previous_file_name is None and global_app_configurator.get_single_configuration("open_previous_files") is \
                 True:
             previous_file_name = self.corresponding_saved_file
 
@@ -531,7 +579,7 @@ class EditorWidget(QWidget, SearchReplaceParent, metaclass=MetaEditor):
             # None, delete it in the file manager, because it will be replaced by a new one.
             if global_app_configurator.get_single_configuration("open_previous_files") is True and \
                     self.corresponding_saved_file is not None:
-                    global_file_manager.delete_file(self.corresponding_saved_file)
+                global_file_manager.delete_file(self.corresponding_saved_file)
 
             # Save the name of the file in the class variable for the corresponding file.
             self.corresponding_saved_file = file_name
@@ -990,7 +1038,9 @@ class EditorWidget(QWidget, SearchReplaceParent, metaclass=MetaEditor):
         """
 
         # Define a dictionary with the relevant command data. The command itself is the query text in the input editor.
-        command_dictionary = {"Command": self.get_query_in_input_editor(),
+        # The check is set to False for preventing preprocessing the query and finding problems, because they are
+        # currently not relevant.
+        command_dictionary = {"Command": self.get_query_in_input_editor(check=False),
                               # Get the current date and time. The date is used and the current time with hours, minutes
                               # and seconds.
                               "Time": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
@@ -1054,7 +1104,7 @@ class EditorWidget(QWidget, SearchReplaceParent, metaclass=MetaEditor):
                     file_to_save.write(str(data_row[data_value_counter]))
 
                     # If the value is not the last one, append a comma for comma separated value.
-                    if data_value_counter != len(data_row)-1:
+                    if data_value_counter != len(data_row) - 1:
                         file_to_save.write(",")
 
                 # Write a newline at the end of a data row.
@@ -1072,4 +1122,3 @@ class EditorWidget(QWidget, SearchReplaceParent, metaclass=MetaEditor):
             global_file_manager.commit_current_files_to_yaml()
 
         self.close()
-
