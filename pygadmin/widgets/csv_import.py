@@ -1,11 +1,7 @@
 from PyQt5.QtWidgets import QDialog, QGridLayout, QLabel, QPushButton, QMessageBox, QLineEdit, \
     QInputDialog
 
-from pygadmin.csv_importer import CSVImporter
-from pygadmin.widgets.widget_icon_adder import IconAdder
-from PyQt5.QtWidgets import QDialog, QGridLayout, QLabel, QPushButton, QMessageBox, QLineEdit, \
-    QInputDialog
-
+from pygadmin.connectionfactory import global_connection_factory
 from pygadmin.csv_importer import CSVImporter
 from pygadmin.widgets.widget_icon_adder import IconAdder
 
@@ -16,11 +12,20 @@ class CSVImportDialog(QDialog):
     file. User interaction is necessary for editing the names and data types of the column.
     """
 
-    def __init__(self, database_connection, csv_file):
+    def __init__(self, host, user, database, port, csv_file):
         super().__init__()
         # Add the pygadmin icon as window icon.
         icon_adder = IconAdder()
         icon_adder.add_icon_to_widget(self)
+
+        # Get the database connection out of the connection factory with the given parameters.
+        database_connection = global_connection_factory.get_database_connection(host, user, database, port)
+
+        # In an error case, the returned database connection is False or None, so an error is shown to the user and the
+        # function ends here.
+        if database_connection is False or database_connection is None:
+            QMessageBox.critical(self, "Connection Error", "A database connection could not be established.")
+            return
 
         # Get the result of an input dialog for getting the delimiter of the csv file.
         delimiter_result = self.init_delimiter_question(csv_file)

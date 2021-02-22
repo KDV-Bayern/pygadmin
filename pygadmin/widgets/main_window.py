@@ -8,6 +8,7 @@ from PyQt5.QtCore import Qt, pyqtSlot
 
 import pygadmin
 from pygadmin.widgets.command_history import CommandHistoryDialog
+from pygadmin.widgets.csv_import import CSVImportDialog
 from pygadmin.widgets.mdi_area import MdiArea
 from pygadmin.widgets.dock import DockWidget
 from pygadmin.widgets.connection_dialog import ConnectionDialogWidget
@@ -209,6 +210,7 @@ class MainWindow(QMainWindow):
         self.add_action_to_tool_bar("New Editor", "editor.svg", self.activate_new_editor_tab)
         # Add a function for activating a new history command dialog.
         self.add_action_to_tool_bar("Show History", "history.svg", self.activate_command_history_dialog)
+        self.add_action_to_tool_bar("Import CSV", "csv.svg", self.activate_csv_import)
 
     def add_action_to_tool_bar(self, action_description, action_icon_file, connected_function):
         """
@@ -469,9 +471,19 @@ class MainWindow(QMainWindow):
     def activate_csv_import(self):
         """
         Activate the necessary steps for starting the csv import dialog. This process includes getting the csv file by
-        a file dialog and getting the current database connection. TODO: Think about a better place for the importer or
-         error for missing database connection.
+        a file dialog and getting the current database connection parameters by the selected node in the tree.
         """
+
+        # Get the current selected node out of the tree for using the database connection parameters of the node in the
+        # import dialog.
+        current_node = self.dock_widget.tree.get_selected_element_by_current_selection()
+
+        # If the current node is None, a node is not chosen, so the connection for the csv importer is missing.
+        if current_node is None:
+            # Warn the user about the missing connection and end the function.
+            QMessageBox.warning(self, "Missing Connection", "Please choose a database connection in the tree for "
+                                                            "proceeding with the CSV import.")
+            return
 
         file_name_and_type = QFileDialog.getOpenFileName(self, "Open CSV", "", "CSV (*.csv)")
         file_name = file_name_and_type[0]
@@ -479,6 +491,17 @@ class MainWindow(QMainWindow):
         # The user has aborted the process, so the file name is an empty string, which is useless.
         if file_name == "":
             return
+
+        # Get the database connection parameters of the given node.
+        database_connection_parameters = current_node.database_connection_parameters
+
+        # Use the database connection parameters of the node and the given file name by the user for initiating the
+        # import dialog.
+        self.csv_import_dialog = CSVImportDialog(database_connection_parameters["host"],
+                                                 database_connection_parameters["user"],
+                                                 database_connection_parameters["database"],
+                                                 database_connection_parameters["port"],
+                                                 file_name)
 
     @pyqtSlot(str)
     def show_status_bar_message(self, message):
