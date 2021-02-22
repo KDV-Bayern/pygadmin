@@ -14,6 +14,10 @@ class CSVImportDialog(QDialog):
 
     def __init__(self, host, user, database, port, csv_file):
         super().__init__()
+        # Set the dialog modal, so during the csv import operation, other data manipulation operations are not possible
+        # with pygadmin.
+        self.setModal(True)
+
         # Add the pygadmin icon as window icon.
         icon_adder = IconAdder()
         icon_adder.add_icon_to_widget(self)

@@ -503,6 +503,14 @@ class MainWindow(QMainWindow):
                                                  database_connection_parameters["port"],
                                                  file_name)
 
+        # Activate the slot for changing the tree structure after a csv import. This import could include creating and
+        # dropping different tables, so the changes are visable in the tree.
+        self.csv_import_dialog.finished.connect(lambda: self.change_tree_structure(("TABLE", {
+            "host": database_connection_parameters["host"],
+            "user": database_connection_parameters["user"],
+            "database": database_connection_parameters["database"],
+            "port": database_connection_parameters["port"]})))
+
     @pyqtSlot(str)
     def show_status_bar_message(self, message):
         """
