@@ -98,7 +98,7 @@ class EditorWidget(QWidget, SearchReplaceParent, metaclass=MetaEditor):
         self.submit_query_shortcut.activated.connect(self.check_for_valid_connection_and_execute_query_with_shortcut)
 
         # Check for enabling and disabling of the button for submitting a query.
-        self.check_enabling_of_submit_button()
+        self.check_enabling_of_submit_and_explain_button()
 
         # Create a button for stopping a query.
         self.stop_query_button = QPushButton("Stop Query")
@@ -107,6 +107,9 @@ class EditorWidget(QWidget, SearchReplaceParent, metaclass=MetaEditor):
         self.stop_query_shortcut = QShortcut(QKeySequence("Ctrl+C"), self)
         self.stop_query_shortcut.setEnabled(False)
         self.stop_query_shortcut.activated.connect(self.stop_current_query)
+
+        # TODO: Build functionality of the button
+        self.explain_query_button = QPushButton("Explain Query Plan")
 
         # Set the button and the shortcut for stopping a query as disabled as default, because a query only needs to be
         # stopped when a query is currently executed.
@@ -182,6 +185,8 @@ class EditorWidget(QWidget, SearchReplaceParent, metaclass=MetaEditor):
         grid_layout.addWidget(self.submit_query_button, 6, 0, 1, 4)
         # Place the stop button below the submit button.
         grid_layout.addWidget(self.stop_query_button, 7, 0, 1, 4)
+        # Place the explain button below the stop button.
+        grid_layout.addWidget(self.explain_query_button, 8, 0, 1, 4)
 
         grid_layout.setSpacing(10)
 
@@ -245,7 +250,7 @@ class EditorWidget(QWidget, SearchReplaceParent, metaclass=MetaEditor):
 
         # Check for enabling or disabling the button and the shortcut for submitting a query based on the new result of
         # the established connection.
-        self.check_enabling_of_submit_button()
+        self.check_enabling_of_submit_and_explain_button()
 
         # Update the window title to the current status of the database connection.
         self.update_window_title_and_description()
@@ -385,14 +390,18 @@ class EditorWidget(QWidget, SearchReplaceParent, metaclass=MetaEditor):
         # Show the error in the table model and do not save the command, which caused the error.
         self.refresh_table_model(error_result_list, save_command=False)
 
-    def check_enabling_of_submit_button(self):
+    def check_enabling_of_submit_and_explain_button(self):
         """
         Check for enabling or disabling the button and the shortcut for submitting a query. There is a check for a valid
         connection with a specified function.
         """
 
+        # Get a bool about the validity of the connection.
+        is_connection_valid = self.database_query_executor.is_connection_valid()
+
         # If the connection is valid, the button is enabled. If the connection is invalid, the button is disabled.
-        self.submit_query_button.setEnabled(self.database_query_executor.is_connection_valid())
+        self.submit_query_button.setEnabled(is_connection_valid)
+        self.explain_query_button.setEnabled(is_connection_valid)
 
     def check_query_status_message(self, status_message):
         """
