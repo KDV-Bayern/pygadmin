@@ -16,6 +16,29 @@ class SQLLexer(QsciLexerSQL, QsciLexerCustom):
         super().__init__(scintilla)
         self.init_colors()
 
+    def keywords(self, p_int):
+        """
+        Reimplement the function for getting all keywords, because the SQL lexer does not contain all relevant keywords
+        for PostgreSQL.
+        """
+
+        # Define a list of missing keywords. Note: This list does not necessarily contain all missing keywords, but a
+        # lot of them are common among tasks for PostgreSQL.
+        missing_keywords = ["analyze", "analyse" "explain", "count", "sum", "avg", "min", "max", "serial",
+                            "materialized", "text", "replace", "exists", "plpgsql", "raise", "while", "loop", "void",
+                            "truncate", "notice", "others", "instead", "do", "verbose", "costs", "settings", "buffers",
+                            "wal", "summary", "format", "json", "xml", "yaml", "immutable"]
+
+        # Get the existing SQL keywords in the lexer.
+        keywords = super().keywords(p_int)
+
+        # Add the missing keywords to the keyword string.
+        for keyword in missing_keywords:
+            keywords = "{} {}".format(keywords, keyword)
+
+        # Return the result.
+        return keywords
+
     def init_colors(self):
         """
         Initialize the colors of the lexer.
