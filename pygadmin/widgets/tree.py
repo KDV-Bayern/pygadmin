@@ -8,6 +8,7 @@ from PyQt5.QtWidgets import QWidget, QTreeView, QAbstractItemView, QMessageBox, 
 
 from pygadmin.configurator import global_app_configurator
 from pygadmin.connectionstore import global_connection_store
+from pygadmin.csv_exporter import CSVExporter
 from pygadmin.models.treemodel import ServerNode, TablesNode, ViewsNode, SchemaNode, AbstractBaseNode, DatabaseNode, \
     TableNode, ViewNode
 from pygadmin.widgets.materialized_view_information import MaterializedViewInformationDialog
@@ -311,6 +312,8 @@ class TreeWidget(QWidget):
             self.context_menu.addAction(show_permission_information_action)
             edit_single_values_action = QAction("Edit Single Values", self)
             self.context_menu.addAction(edit_single_values_action)
+            export_full_table_to_csv_action = QAction("Export Full Table As CSV", self)
+            self.context_menu.addAction(export_full_table_to_csv_action)
             # Get the action at the current position of the triggering event.
             position_action = self.context_menu.exec_(self.tree_view.viewport().mapToGlobal(position))
 
@@ -333,6 +336,9 @@ class TreeWidget(QWidget):
 
             elif position_action == edit_single_values_action:
                 self.show_edit_singles_values_dialog(current_selected_node)
+
+            elif position_action == export_full_table_to_csv_action:
+                self.get_full_data_of_current_table_for_csv_export(current_selected_node)
 
     def append_new_connection_parameters_and_node(self):
         """
@@ -978,3 +984,18 @@ class TreeWidget(QWidget):
         """
 
         self.materialized_view_information_dialog = MaterializedViewInformationDialog(current_node)
+
+    def get_full_data_of_current_table_for_csv_export(self, current_node):
+        # TODO: Docu
+        self.csv_exporter = CSVExporter(self, None, {"host": current_node.database_connection_parameters["host"],
+                                                     "user": current_node.database_connection_parameters["user"],
+                                                     "database":
+                                                         current_node.database_connection_parameters["database"],
+                                                     "port": current_node.database_connection_parameters["port"]},
+                                        current_node.name)
+
+        self.csv_exporter.export_and_save_csv_data()
+        self.csv_exporter.database_query_executor.result_data.connect(lambda:
+                                                                      QMessageBox.information(self, "Export Success",
+                                                                                              "The csv export was "
+                                                                                              "successful."))

@@ -10,6 +10,7 @@ from PyQt5.QtWidgets import QWidget, QGridLayout, QPushButton, QTableView, QMess
     QCheckBox, QLabel, qApp
 
 from pygadmin.connectionfactory import global_connection_factory
+from pygadmin.csv_exporter import CSVExporter
 from pygadmin.models.tablemodel import TableModel
 from pygadmin.configurator import global_app_configurator
 from pygadmin.models.lexer import SQLLexer
@@ -1074,60 +1075,12 @@ class EditorWidget(QWidget, SearchReplaceParent, metaclass=MetaEditor):
         Activate the export and save of the csv data.
         """
 
-        # Get the file name with a file dialog.
-        file_name = self.activate_file_dialog_for_csv_export()
+        # TODO: Docu
+        csv_exporter = CSVExporter(self, self.table_model.data_list)
+        success = csv_exporter.export_and_save_csv_data()
 
-        # If the file name is None, the process of saving the file has been aborted.
-        if file_name is None:
-            # End the function with a return.
-            return
-
-        # Save the current query result data.
-        self.export_result_to_csv(file_name)
-
-    def activate_file_dialog_for_csv_export(self):
-        """
-        Create a file dialog for activating the csv export.
-        """
-
-        # Get a csv file with the default name result.csv and the file type csv.
-        file_dialog_with_name_and_type = QFileDialog.getSaveFileName(self, "Save File", "result", "CSV (*.csv)")
-
-        # Get the file name.
-        file_name = file_dialog_with_name_and_type[0]
-
-        # If the file name is not an empty string, return the file name, because in this case, the user has entered one.
-        if file_name != "":
-            return file_name
-
-        # Inform the user in the log about the abort.
-        else:
-            logging.info("The current file saving process was aborted by the user, so the current result as csv file"
-                         " is not saved.")
-
-            # Return None, because there is no file name.
-            return None
-
-    def export_result_to_csv(self, file_name):
-        """
-        Export the result data to csv with the file name. Get the data out of the table model.
-        """
-
-        # Open the given file in write mode.
-        with open(file_name, "w") as file_to_save:
-            # Get through every data row in the data list.
-            for data_row in self.table_model.data_list:
-                # Get through every value in the data row.
-                for data_value_counter in range(len(data_row)):
-                    # Write every value.
-                    file_to_save.write(str(data_row[data_value_counter]))
-
-                    # If the value is not the last one, append a comma for comma separated value.
-                    if data_value_counter != len(data_row) - 1:
-                        file_to_save.write(",")
-
-                # Write a newline at the end of a data row.
-                file_to_save.write("\n")
+        if success:
+            QMessageBox.information(self, "Export Success", "The csv export was successful.")
 
     def get_explain_analyze_query(self):
         """
