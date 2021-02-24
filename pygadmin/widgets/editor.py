@@ -89,7 +89,10 @@ class EditorWidget(QWidget, SearchReplaceParent, metaclass=MetaEditor):
 
         # Create a button for submitting a query.
         self.submit_query_button = QPushButton("Submit Query")
-        self.submit_query_button.clicked.connect(self.execute_current_query)
+        # The function for executing the current query uses a parameter, which is None as default and should be None in
+        # this case. But the button click has its own parameter for a checked/an unchecked button, submitted by a click,
+        # so the lambda is used for ignoring this button parameter.
+        self.submit_query_button.clicked.connect(lambda: self.execute_current_query(None))
 
         # Create a shortcut for submitting a query.
         self.submit_query_shortcut = QShortcut(QKeySequence("F5"), self)
@@ -97,7 +100,12 @@ class EditorWidget(QWidget, SearchReplaceParent, metaclass=MetaEditor):
         # shows an error to the user.
         self.submit_query_shortcut.activated.connect(self.check_for_valid_connection_and_execute_query_with_shortcut)
 
-        # Check for enabling and disabling of the button for submitting a query.
+        # Create a button for explaining the current query (plan).
+        self.explain_query_button = QPushButton("Explain Query Plan")
+        # Connect the function for executing the explaining process with the button.
+        self.explain_query_button.clicked.connect(self.execute_explain_analyze_query)
+
+        # Check for enabling and disabling of the button for submitting or explaining a query.
         self.check_enabling_of_submit_and_explain_button()
 
         # Create a button for stopping a query.
@@ -107,9 +115,6 @@ class EditorWidget(QWidget, SearchReplaceParent, metaclass=MetaEditor):
         self.stop_query_shortcut = QShortcut(QKeySequence("Ctrl+C"), self)
         self.stop_query_shortcut.setEnabled(False)
         self.stop_query_shortcut.activated.connect(self.stop_current_query)
-
-        # TODO: Build functionality of the button
-        self.explain_query_button = QPushButton("Explain Query Plan")
 
         # Set the button and the shortcut for stopping a query as disabled as default, because a query only needs to be
         # stopped when a query is currently executed.
@@ -255,11 +260,12 @@ class EditorWidget(QWidget, SearchReplaceParent, metaclass=MetaEditor):
         # Update the window title to the current status of the database connection.
         self.update_window_title_and_description()
 
-    def execute_current_query(self):
+    def execute_current_query(self, query_to_execute=None):
         """
         Check for a valid connection and execute the current (selected) content of the editor in a separate thread. The
         separate thread emits signals for processing the result of the query. This process is realized by the database
-        query executor.
+        query executor. The default parameter for the query to execute is None, so the query in the input editor is used
+        as query. If a query is given, the given one is executed.
         """
 
         # At this point, the query will be executed and the process will begin, so a signal for a status bar is emitted,
@@ -273,10 +279,14 @@ class EditorWidget(QWidget, SearchReplaceParent, metaclass=MetaEditor):
         # Set the button invisible during a query.
         self.export_csv_button.setVisible(False)
 
-        # Get the query for executing.
-        query_to_execute = self.get_query_in_input_editor()
+        # If the query is None, the default parameter is used, so it is necessary to get the current query in the input
+        # editor.
+        if query_to_execute is None:
+            # Get the query for executing.
+            query_to_execute = self.get_query_in_input_editor()
 
-        # If the query is not None for an error or abort during the check process, continue.
+        # If the query is not None, continue. An error or abort during the check process could result in a query, which
+        # is None.
         if query_to_execute is not None:
             # Define the query to execute as database query of the executor.
             self.database_query_executor.database_query = query_to_execute
@@ -1118,6 +1128,40 @@ class EditorWidget(QWidget, SearchReplaceParent, metaclass=MetaEditor):
 
                 # Write a newline at the end of a data row.
                 file_to_save.write("\n")
+
+    def get_explain_analyze_query(self):
+        """
+        Get the explain (analyze) query for showing the query plan or the query execution.
+        """
+
+        # Define the start of the query with an EXPLAIN.
+        query_start = "EXPLAIN "
+        # Get the current query in the input editor without a check for a single DELETE/UPDATE.
+        query = self.get_query_in_input_editor(check=False)
+
+        # Ask for the actual execution of the query.
+        analyze_question = QMessageBox.question(self, "Analyze?", "Use the EXPLAIN ANALYZE option (query will be "
+                                                                  "actually executed)?",
+                                                QMessageBox.Yes | QMessageBox.No)
+
+        # If the query should be executed, the ANALYZE is part of the query start.
+        if analyze_question == QMessageBox.Yes:
+            query_start = "{}ANALYZE ".format(query_start)
+
+        # Build the query.
+        query = "{}{}".format(query_start, query)
+
+        return query
+
+    def execute_explain_analyze_query(self):
+        """
+        Get the explain (analyze) query and execute it.
+        """
+
+        # Get the query.
+        query = self.get_explain_analyze_query()
+        # Execute the query with the database query executor and the editor execution process.
+        self.execute_current_query(query)
 
     def closeEvent(self, a0: QtGui.QCloseEvent) -> None:
         """
