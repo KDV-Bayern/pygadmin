@@ -1075,10 +1075,12 @@ class EditorWidget(QWidget, SearchReplaceParent, metaclass=MetaEditor):
         Activate the export and save of the csv data.
         """
 
-        # TODO: Docu
+        # Get the csv exporter.
         csv_exporter = CSVExporter(self, self.table_model.data_list)
+        # Get the success by the result of exporting/saving the csv data.
         success = csv_exporter.export_and_save_csv_data()
 
+        # Show the success to the user.
         if success:
             QMessageBox.information(self, "Export Success", "The csv export was successful.")
 

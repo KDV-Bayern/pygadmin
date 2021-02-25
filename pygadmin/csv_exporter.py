@@ -1,20 +1,28 @@
 import logging
 
+from PyQt5.QtCore import QObject, pyqtSignal
 from PyQt5.QtWidgets import QFileDialog, QMessageBox
 
 from pygadmin.database_query_executor import DatabaseQueryExecutor
 from pygadmin.connectionfactory import global_connection_factory
 
 
-class CSVExporter:
+class CSVExporter(QObject):
+
+    # Create a signal for a successful export.
+    export_complete = pyqtSignal(bool)
+
     """
-    Create a class for exporting the current results to a CSV file. TODO: Docu
+    Create a class for exporting the current results to a CSV file. It is possible to use an existing data list or to
+    get the data (list) with the database query executor. Use a QObject for emitting signals.
     """
 
     def __init__(self, parent, data_list, database_connection_parameters=None, table_name=None):
         """
         Get the parent for assigning the file dialog to a widget and the data list for the data, which will be saved.
         """
+
+        super().__init__()
 
         # If the data list is None and the database connection parameters are None, there is no way to get the required
         # data for the csv file.
@@ -42,35 +50,57 @@ class CSVExporter:
         and the database query.
         """
 
+        # Get the database connection.
         database_connection = self.get_database_connection(database_connection_parameters)
 
+        # If the database connection is None, the connection is broken or could not be established.
         if database_connection is None:
+            # End the function, because there is not any data to get.
             return
 
+        # Define the query for getting the data. The table name is based on a table name in a node, so an SQL injection
+        # at this point is highly unlikely.
         query = "SELECT * FROM {};".format(table_name)
 
+        # Get a database query executor.
         self.database_query_executor = DatabaseQueryExecutor()
+        # Connect the signal for the result data with the function for building and processing the result data list.
         self.database_query_executor.result_data.connect(self.get_result_data_list)
+        # Set the database connection and the query.
         self.database_query_executor.database_connection = database_connection
         self.database_query_executor.database_query = query
 
     def get_database_connection(self, database_connection_parameters):
+        """
+        Get the database connection with help of the global connection factory and show an error, if the connection
+        fails.
+        """
+
+        # Get the database connection.
         database_connection = global_connection_factory.get_database_connection(database_connection_parameters["host"],
                                                                                 database_connection_parameters["user"],
                                                                                 database_connection_parameters[
                                                                                     "database"],
                                                                                 database_connection_parameters["port"])
 
+        # Check for a potential error.
         if database_connection is None or database_connection is False:
+            # Show the error to the user.
             QMessageBox.critical(self.parent, "Database Connection Fail", "The connection to the database failed, "
                                                                           "please check the log for further "
                                                                           "information.")
 
+            # Return None for the failure.
             return None
 
+        # Return the database connection.
         return database_connection
 
     def get_result_data_list(self, data_list):
+        """
+        Get the result data list, set the success to True and export and save the data.
+        """
+
         if data_list:
             self.data_list = data_list
             self.success = True
@@ -113,13 +143,15 @@ class CSVExporter:
                 for data_value_counter in range(len(data_row)):
                     # Write every value.
                     file_to_save.write(str(data_row[data_value_counter]))
-
                     # If the value is not the last one, append a comma for comma separated value.
                     if data_value_counter != len(data_row) - 1:
                         file_to_save.write(",")
 
                 # Write a newline at the end of a data row.
                 file_to_save.write("\n")
+
+        # Emit the signal for a successful export.
+        self.export_complete.emit(True)
 
     def export_and_save_csv_data(self):
         """

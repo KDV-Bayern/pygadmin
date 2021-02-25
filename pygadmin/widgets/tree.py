@@ -986,7 +986,13 @@ class TreeWidget(QWidget):
         self.materialized_view_information_dialog = MaterializedViewInformationDialog(current_node)
 
     def get_full_data_of_current_table_for_csv_export(self, current_node):
-        # TODO: Docu
+        """
+        Export the data of the selected table to a csv file.
+        """
+
+        # Use the csv exporter: The data list is None (because there is currently no data list), the connection
+        # parameters are based on the parameters of the node (without the timeout) and the table name is the name of the
+        # node.
         self.csv_exporter = CSVExporter(self, None, {"host": current_node.database_connection_parameters["host"],
                                                      "user": current_node.database_connection_parameters["user"],
                                                      "database":
@@ -994,8 +1000,17 @@ class TreeWidget(QWidget):
                                                      "port": current_node.database_connection_parameters["port"]},
                                         current_node.name)
 
+        # Export and save the csv data.
         self.csv_exporter.export_and_save_csv_data()
-        self.csv_exporter.database_query_executor.result_data.connect(lambda:
-                                                                      QMessageBox.information(self, "Export Success",
-                                                                                              "The csv export was "
-                                                                                              "successful."))
+        # Connect the success of the export with a message box for showing the success.
+        self.csv_exporter.export_complete.connect(lambda: QMessageBox.information(self, "Export Success",
+                                                                                  "The csv export was "
+                                                                                  "successful."))
+
+        # Connect the failure of the data list with a message box for whoring the error.
+        self.csv_exporter.database_query_executor.error.connect(lambda error: QMessageBox.critical(self, "Export Error",
+                                                                                                         "The export "
+                                                                                                         "failed with "
+                                                                                                         "error: {"
+                                                                                                         "}".format(
+                                                                                                             error[1])))
