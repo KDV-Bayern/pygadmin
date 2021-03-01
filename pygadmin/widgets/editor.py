@@ -1124,15 +1124,80 @@ class EditorWidget(QWidget, SearchReplaceParent, metaclass=MetaEditor):
         # Execute the query with the database query executor and the editor execution process.
         self.execute_current_query(query)
 
+    def check_for_unsaved_changes(self):
+        """
+        Check for unsaved changes in the query input editor.
+        """
+
+        # Check for a text in the editor. If the text is an empty string, nothing happened.
+        if self.query_input_editor.text() == "":
+            # Return False, because there are no unsaved changes.
+            return False
+
+        # Check for existence the corresponding saved file. At this point, there is a text in the editor.
+        if self.corresponding_saved_file is None:
+            # Return True, because the text in the editor is not saved in the file.
+            return True
+
+        # Get the file save status. If the status is not empty, there is an unsaved change.
+        if self.get_file_save_status_string_for_window_title() != "":
+            # Return True for an unsaved change.
+            return True
+
+        # If this point is reached, there are no unsaved changes.
+        return False
+
+    def warn_about_unsaved_changes(self):
+        """
+        Warn the user about unsaved changes in the editor. The function is normally called before a closing event is
+        processed.
+        """
+
+        # Warn the user about unsaved content and ask how to proceed.
+        question_message_box = QMessageBox.question(self, "Unsaved Content", "The content in the editor is not saved in"
+                                                                             "a file. Do you still want to close the "
+                                                                             "editor and loose the current content? "
+                                                                             "(Ignore for ignoring these warnings in "
+                                                                             "the future)",
+                                                    QMessageBox.Yes | QMessageBox.No | QMessageBox.Ignore)
+
+        # Proceed normally for a yes.
+        if question_message_box == QMessageBox.Yes:
+            return True
+
+        # Stop the process for a no.
+        elif question_message_box == QMessageBox.No:
+            return False
+
+        # Proceed with setting the configuration and normally for an ignore.
+        elif question_message_box == QMessageBox.Ignore:
+            global_app_configurator.set_single_configuration("check_unsaved_files", False)
+            global_app_configurator.save_configuration_data()
+            return True
+
     def closeEvent(self, a0: QtGui.QCloseEvent) -> None:
         """
         Overwrite the close event: If the configuration for opening the previous is set and the corresponding save file
         exists, delete it from the file manager, because it does not have to be opened after a restart of the program.
+        a0 is the event, which can be accepted or ignored.
         """
 
+        # Check for an existing file, which should be opened at the next start.
         if self.corresponding_saved_file is not None \
                 and global_app_configurator.get_single_configuration("open_previous_files") is True:
             global_file_manager.delete_file(self.corresponding_saved_file)
             global_file_manager.commit_current_files_to_yaml()
 
-        self.close()
+        # Check for unsaved changes and the current configuration for processing them.
+        if self.check_for_unsaved_changes() and global_app_configurator.get_single_configuration("check_unsaved_files")\
+                is not False:
+            # Get the user's opinion about the closing process.
+            close_anyway = self.warn_about_unsaved_changes()
+
+            # If the user does not want to close the editor, ignore the event and end the function.
+            if close_anyway is not True:
+                a0.ignore()
+                return
+
+        # Accept the close event and close the widget.
+        a0.accept()

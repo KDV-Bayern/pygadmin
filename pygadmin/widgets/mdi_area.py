@@ -304,3 +304,24 @@ class MdiArea(QMdiArea):
 
         # None will be returned, if the search for a currently existing empty editor widget is unsuccessful.
         return None
+
+    def check_for_unsaved_editor_tabs(self):
+        # TODO: Docu
+        unsaved_changes = False
+
+        editor_widget_list = [sub_window.widget() for sub_window in self.subWindowList()
+                              if isinstance(sub_window.widget(), EditorWidget)]
+
+        for editor_widget in editor_widget_list:
+            if editor_widget.check_for_unsaved_changes() is True:
+                close_anyway = editor_widget.warn_about_unsaved_changes()
+
+                if close_anyway is True:
+                    unsaved_changes = False
+
+                else:
+                    unsaved_changes = True
+
+                break
+
+        return unsaved_changes

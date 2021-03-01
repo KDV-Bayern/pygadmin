@@ -1,7 +1,7 @@
 import os
 import logging
 
-from PyQt5 import QtCore
+from PyQt5 import QtCore, QtGui
 from PyQt5.QtGui import QIcon, QPixmap, QKeySequence
 from PyQt5.QtWidgets import QMainWindow, QAction, QToolBar, QMessageBox, QMenu, QFileDialog, QShortcut
 from PyQt5.QtCore import Qt, pyqtSlot
@@ -159,7 +159,7 @@ class MainWindow(QMainWindow):
                                     alternate_menu=settings_menu)
 
         # Add an action for leaving the application.
-        self.add_action_to_menu_bar("Exit", self.close_program)
+        self.add_action_to_menu_bar("Exit", self.close)
 
         # Create a new menu bar point: An editor menu.
         editor_menu = self.menu_bar.addMenu("Editor")
@@ -554,9 +554,12 @@ class MainWindow(QMainWindow):
         # empty editor with this command.
         self.command_history_dialog.get_double_click_command.connect(self.load_empty_editor_with_command)
 
-    def close_program(self):
-        """
-        Define a wrapper function for closing the application.
-        """
+    def closeEvent(self, a0: QtGui.QCloseEvent) -> None:
+        # TODO: Docu
+        if global_app_configurator.get_single_configuration("check_unsaved_files") is not False \
+                and self.mdi_area.check_for_unsaved_editor_tabs() is True:
+            a0.ignore()
+            return
 
-        self.close()
+        a0.accept()
+
