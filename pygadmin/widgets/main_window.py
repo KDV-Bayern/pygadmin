@@ -2,8 +2,8 @@ import os
 import logging
 
 from PyQt5 import QtCore
-from PyQt5.QtGui import QIcon, QPixmap
-from PyQt5.QtWidgets import QMainWindow, QAction, QToolBar, QMessageBox, QMenu, QFileDialog
+from PyQt5.QtGui import QIcon, QPixmap, QKeySequence
+from PyQt5.QtWidgets import QMainWindow, QAction, QToolBar, QMessageBox, QMenu, QFileDialog, QShortcut
 from PyQt5.QtCore import Qt, pyqtSlot
 
 import pygadmin
@@ -113,6 +113,11 @@ class MainWindow(QMainWindow):
 
         # Ensure the right deletion order for closing the application and prevent a warning with QTimer and QThread.
         self.setAttribute(QtCore.Qt.WA_DeleteOnClose)
+
+        # Define a short cut for getting a new editor tab.
+        self.new_editor_tab_short_cut = QShortcut(QKeySequence("Ctrl+N"), self)
+        # Connect the function for activating a new editor tab with the short cut.
+        self.new_editor_tab_short_cut.activated.connect(self.activate_new_editor_tab)
 
         # Load the initial data/server nodes in the tree widget.
         self.dock_widget.tree.init_data()
