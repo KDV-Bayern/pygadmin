@@ -180,7 +180,7 @@ class ConnectionDialogWidget(QDialog):
         self.delete_current_connection_button.setEnabled(False)
 
         # Create a button for closing the widget.
-        self.cancel_parameter_input_button = QPushButton("Close")
+        self.cancel_parameter_input_button = QPushButton("Close Connection Dialog")
         self.cancel_parameter_input_button.clicked.connect(self.close)
 
         # Set a second function for a clicked cancel button, so the configuration is saved.
