@@ -4,10 +4,10 @@ import datetime
 
 from PyQt5 import QtGui
 from PyQt5.Qsci import QsciScintilla
-from PyQt5.QtCore import pyqtSlot, pyqtSignal, QEvent
+from PyQt5.QtCore import pyqtSlot, pyqtSignal, QEvent, Qt
 from PyQt5.QtGui import QKeySequence
 from PyQt5.QtWidgets import QWidget, QGridLayout, QPushButton, QTableView, QMessageBox, QShortcut, QFileDialog, \
-    QCheckBox, QLabel, qApp
+    QCheckBox, QLabel, qApp, QSplitter
 
 from pygadmin.connectionfactory import global_connection_factory
 from pygadmin.csv_exporter import CSVExporter
@@ -180,13 +180,19 @@ class EditorWidget(QWidget, SearchReplaceParent, metaclass=MetaEditor):
         # Set the search and replace widget.
         grid_layout.addWidget(self.search_replace_widget, 1, 0, 2, 4)
 
-        # Set the input field for SQL queries as element at the top.
-        grid_layout.addWidget(self.query_input_editor, 3, 0, 1, 4)
-        # Set the export button above the table view.
+        # Create a splitter for controlling the size of the widgets. Use a vertical splitter for vertical splitting.
+        splitter = QSplitter(Qt.Vertical)
+        # Add the query input editor at the top.
+        splitter.addWidget(self.query_input_editor)
+        # Set the table view under the editor.
+        splitter.addWidget(self.table_view)
+        # Add the splitter to the grid layout.
+        grid_layout.addWidget(splitter, 3, 0, 1, 4)
+
+        # Set the export button on the top of the buttons. The export button is only visible, if results are available
+        # in the table view.
         grid_layout.addWidget(self.export_csv_button, 4, 0, 1, 4)
-        # Set the table view as window for results between the input field for SQL queries and the button for submitting
-        # the query.
-        grid_layout.addWidget(self.table_view, 5, 0, 1, 4)
+
         # Set the submit button for the SQL queries as element at the bottom.
         grid_layout.addWidget(self.submit_query_button, 6, 0, 1, 4)
         # Place the stop button below the submit button.
