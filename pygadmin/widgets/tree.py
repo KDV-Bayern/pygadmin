@@ -128,6 +128,9 @@ class TreeWidget(QWidget):
         # the position of the mouse to transmit the clicked item.
         self.tree_view.customContextMenuRequested.connect(self.open_context_menu)
 
+        # Connect a double click in the tree view with the function for edit single values (for tables).
+        self.tree_view.doubleClicked.connect(self.show_edit_single_value_table)
+
         # Create a thread pool for the later usage of the tree node worker.
         self.thread_pool = QThreadPool()
 
@@ -335,10 +338,22 @@ class TreeWidget(QWidget):
                 self.show_permission_dialog(current_selected_node)
 
             elif position_action == edit_single_values_action:
-                self.show_edit_singles_values_dialog(current_selected_node)
+                self.show_edit_single_values_dialog(current_selected_node)
 
             elif position_action == export_full_table_to_csv_action:
                 self.get_full_data_of_current_table_for_csv_export(current_selected_node)
+
+    def show_edit_single_value_table(self):
+        """
+        Create a function for showing the edit single values dialog of a table node.
+        """
+
+        # Get the current selected node.
+        current_selected_node = self.get_selected_element_by_current_selection()
+
+        # If the current selected node is a table node, proceed.
+        if isinstance(current_selected_node, TableNode):
+            self.show_edit_single_values_dialog(current_selected_node)
 
     def append_new_connection_parameters_and_node(self):
         """
@@ -888,7 +903,7 @@ class TreeWidget(QWidget):
 
         self.permission_information_dialog = PermissionInformationDialog(node_information)
 
-    def show_edit_singles_values_dialog(self, current_node):
+    def show_edit_single_values_dialog(self, current_node):
         """
         Create a table edit dialog for changing single values in the current node.
         """
