@@ -306,22 +306,35 @@ class MdiArea(QMdiArea):
         return None
 
     def check_for_unsaved_editor_tabs(self):
-        # TODO: Docu
+        """
+        Check for unsaved changes in the editor tabs of the mdi area.
+        """
+
+        # Introduce a variable for  unsaved changes. If there a unsaved changes, the variable is True, if not, False.
         unsaved_changes = False
 
+        # Get the list of editor widgets in the mdi area.
         editor_widget_list = [sub_window.widget() for sub_window in self.subWindowList()
                               if isinstance(sub_window.widget(), EditorWidget)]
 
+        # Check for every editor widget, if there are unsaved changes.
         for editor_widget in editor_widget_list:
+            # Check in the specific editor widget for unsaved changes.
             if editor_widget.check_for_unsaved_changes() is True:
+                # Warn the user and get the answer about closing anyway.
                 close_anyway = editor_widget.warn_about_unsaved_changes()
 
+                # If the user wants to close anyway, there are no unsaved changes.
                 if close_anyway is True:
                     unsaved_changes = False
 
+                # If the user does not want to close, there are unsaved changes.
                 else:
                     unsaved_changes = True
 
+                # Break the for loop, because there is now a result accepted by the user. All other potentially unsaved
+                # changes are checked with the previous check and user question.
                 break
 
+        # Return the result
         return unsaved_changes

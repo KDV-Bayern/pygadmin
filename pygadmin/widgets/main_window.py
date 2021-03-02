@@ -555,11 +555,20 @@ class MainWindow(QMainWindow):
         self.command_history_dialog.get_double_click_command.connect(self.load_empty_editor_with_command)
 
     def closeEvent(self, a0: QtGui.QCloseEvent) -> None:
-        # TODO: Docu
+        """
+        Reimplement the close event of the main window and as a consequence, the close event of the whole application.
+        Check for unsaved files in the editor tabs, which could affect the close process.
+        """
+
+        # Check if the configuration for checking for unsaved files is not False, which means activated. Check also if
+        # there are open editor tabs, which are not saved. At this point, the user has been asked, if they want to stop
+        # the closing process and the check is True for that case.
         if global_app_configurator.get_single_configuration("check_unsaved_files") is not False \
                 and self.mdi_area.check_for_unsaved_editor_tabs() is True:
+            # Ignore the close event.
             a0.ignore()
             return
 
+        # Accept the close event and end the application.
         a0.accept()
 
