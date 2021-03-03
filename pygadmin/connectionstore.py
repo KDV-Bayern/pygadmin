@@ -119,27 +119,6 @@ class ConnectionStore:
                     and connection_parameter_dictionary["Host"] == connection_parameter_dictionary_for_check["Host"] \
                     and connection_parameter_dictionary["Port"] == connection_parameter_dictionary_for_check["Port"]:
 
-                # If the two dictionaries contain a parameter for loading all databases, check them for their equality.
-                # If they are not equal, the given connection has changed.
-                if "Load All" in connection_parameter_dictionary \
-                        and "Load All" in connection_parameter_dictionary_for_check:
-                    if connection_parameter_dictionary["Load All"] \
-                            != connection_parameter_dictionary_for_check["Load All"]:
-                        return False
-
-                # If only one dictionary has a key for "Load All", there is a change in the connection parameters.
-                elif "Load All" in connection_parameter_dictionary \
-                        or "Load All" in connection_parameter_dictionary_for_check:
-                    return False
-
-                # If load all in the check dictionary is False and if the databases are not the same, the connection has
-                # changed, because only one database is used. One database is not a universal enter point in this case.
-                if "Load All" in connection_parameter_dictionary_for_check \
-                        and connection_parameter_dictionary_for_check["Load All"] is False \
-                        and connection_parameter_dictionary["Database"] \
-                        != connection_parameter_dictionary_for_check["Database"]:
-                    return False
-
                 return True
 
         # If a duplicate is not found, this else branch is active.
@@ -219,10 +198,16 @@ class ConnectionStore:
 
         # Check for every item in the list for a match.
         for index in range(len(self.connection_parameters_yaml)):
+            current_connection_parameters_dictionary = self.connection_parameters_yaml[index]
             # If the list of all dictionaries contains the given dictionary, there is a match.
-            if self.connection_parameters_yaml[index] == connection_parameters_dictionary_to_check:
-
-                # Return the current index of the connection.
+            if current_connection_parameters_dictionary["Host"] == connection_parameters_dictionary_to_check["Host"] \
+                    and current_connection_parameters_dictionary["Database"] == \
+                    connection_parameters_dictionary_to_check["Database"] \
+                    and current_connection_parameters_dictionary["Username"] \
+                    == connection_parameters_dictionary_to_check["Username"] and \
+                    current_connection_parameters_dictionary["Port"] \
+                    == connection_parameters_dictionary_to_check["Port"]:
+                # Return the current index of the connection
                 return index
 
     def get_connection_at_index(self, connection_at_index):
