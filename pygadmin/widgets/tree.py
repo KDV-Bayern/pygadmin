@@ -60,6 +60,13 @@ class TreeNodeWorker(QRunnable):
         self.signals.node_creation_complete.emit(True)
 
 
+class TreeContextMenuAction:
+    def __init__(self, function, parameters, node_types):
+        self.function = function
+        self.parameters = parameters
+        self.node_types = node_types
+
+
 class TreeWidget(QWidget):
     """
     Create a class which is a child class of QWidget as interface for the tree, which shows the available servers,
@@ -230,73 +237,38 @@ class TreeWidget(QWidget):
         # Make a new context menu as QMenu.
         self.context_menu = QMenu()
 
+        # TODO: Under construction
+        actions = {
+            "Edit Connection": [self.show_connection_dialog_for_current_node, ServerNode],
+            "Refresh": [self.refresh_current_selected_node, ServerNode],
+            "Show Create Database Statement": [self.get_create_statement_of_node, DatabaseNode],
+            "Show Drop Statement": [self.get_drop_statement_of_database_node, DatabaseNode],
+            "Show Database Permissions": [self.show_permission_dialog, DatabaseNode],
+            "Show Materialized Views": [self.show_materialized_views_of_database_node, DatabaseNode],
+            "Show Create View Statement": [self.get_create_statement_of_node, ViewNode],
+            "Show View Permissions": [self.show_permission_dialog, ViewNode]
+        }
+
+        server_actions = {}
+        database_actions = {}
+        view_actions = {}
+
+        for action_key, action_value in actions.items():
+            if action_value[1] == ServerNode:
+                server_actions[action_key] = action_value
+
+            elif action_value[1] == DatabaseNode:
+                database_actions[action_key] = action_value
+
+            elif action_value[1] == ViewNode:
+                view_actions[action_key] = action_value
+
         # Get the current selected node by the function for getting the selected element by the current selection.
         current_selected_node = self.get_selected_element_by_current_selection()
 
-        # Check, if the current selected node is a server node.
-        if isinstance(current_selected_node, ServerNode):
-            # Create an action for editing the database connection of the server node.
-            edit_connection_action = QAction("Edit Connection", self)
-            # Add the action to the context menu.
-            self.context_menu.addAction(edit_connection_action)
-            # Create an action for refreshing the server node.
-            refresh_action = QAction("Refresh", self)
-            # Add the action to the context menu.
-            self.context_menu.addAction(refresh_action)
-            # Get the action at the current position of the triggering event.
-            position_action = self.context_menu.exec_(self.tree_view.viewport().mapToGlobal(position))
-
-            # Check, if the action at the current position is the action for editing the connection.
-            if position_action == edit_connection_action:
-                # Show a connection dialog with the current selected node as preselected node.
-                self.show_connection_dialog_for_current_node(current_selected_node)
-
-            # Check, if the action at the current position is the action for refreshing the node.
-            elif position_action == refresh_action:
-                # Refresh the current selected node.
-                self.refresh_current_selected_node(current_selected_node)
-
-        if isinstance(current_selected_node, DatabaseNode):
-            show_create_statement_action = QAction("Show Create Statement", self)
-            self.context_menu.addAction(show_create_statement_action)
-            show_drop_statement_action = QAction("Show Drop Statement", self)
-            self.context_menu.addAction(show_drop_statement_action)
-            show_permission_information_action = QAction("Show Permissions", self)
-            self.context_menu.addAction(show_permission_information_action)
-            show_materialized_views_action = QAction("Show Materialized Views")
-            self.context_menu.addAction(show_materialized_views_action)
-
-            position_action = self.context_menu.exec_(self.tree_view.viewport().mapToGlobal(position))
-
-            if position_action == show_create_statement_action:
-                # Use the function for getting the create statement of the database node.
-                self.get_create_statement_of_node(current_selected_node)
-
-            elif position_action == show_drop_statement_action:
-                self.get_drop_statement_of_database_node(current_selected_node)
-
-            elif position_action == show_permission_information_action:
-                self.show_permission_dialog(current_selected_node)
-
-            elif position_action == show_materialized_views_action:
-                self.show_materialized_views_of_database_node(current_selected_node)
-
-        # Check for a view node.
-        if isinstance(current_selected_node, ViewNode):
-            show_create_statement_action = QAction("Show Create Statement", self)
-            self.context_menu.addAction(show_create_statement_action)
-            show_permission_information_action = QAction("Show Permissions", self)
-            self.context_menu.addAction(show_permission_information_action)
-
-            # Get the action at the current position of the triggering event.
-            position_action = self.context_menu.exec_(self.tree_view.viewport().mapToGlobal(position))
-
-            if position_action == show_create_statement_action:
-                # Use the function for getting the create statement of the view node.
-                self.get_create_statement_of_node(current_selected_node)
-
-            elif position_action == show_permission_information_action:
-                self.show_permission_dialog(current_selected_node)
+        self.add_action_to_context_menu(current_selected_node, ServerNode, server_actions, position)
+        self.add_action_to_context_menu(current_selected_node, DatabaseNode, database_actions, position)
+        self.add_action_to_context_menu(current_selected_node, ViewNode, view_actions, position)
 
         # Check for a table node as current selected node.
         if isinstance(current_selected_node, TableNode):
@@ -342,6 +314,20 @@ class TreeWidget(QWidget):
 
             elif position_action == export_full_table_to_csv_action:
                 self.get_full_data_of_current_table_for_csv_export(current_selected_node)
+
+    def add_action_to_context_menu(self, selected_node, node_type, actions, position):
+        # TODO: docu, refactoring
+        if isinstance(selected_node, node_type):
+            for action_key, action_value in actions.items():
+                new_action = QAction(action_key, self)
+                self.context_menu.addAction(new_action)
+                action_value.append(new_action)
+
+            position_action = self.context_menu.exec_(self.tree_view.viewport().mapToGlobal(position))
+
+            for value in actions.values():
+                if position_action == value[2]:
+                    value[0](selected_node)
 
     def show_edit_single_value_table(self):
         """
