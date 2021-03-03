@@ -73,12 +73,20 @@ class DatabaseDumper:
 
             # If an exception occurs, for example triggered by a timeout, save a message in the log.
             except Exception as error:
-                logging.error("An error occurred during the dumping process: {}".format(error))
+                logging.error("An error occurred during the dumping process: {}".format(error), exc_info=True)
 
             # Use a finally block for a short clean up.
             finally:
-                # Remove the file, which was used for submitting the password and is no longer necessary.
-                os.remove(file_path)
+                # Try to remove the file. Use a try statement, because this block can cause errors for windows user.
+                try:
+                    # Remove the file, which was used for submitting the password and is no longer necessary.
+                    os.remove(file_path)
+
+                # Add the exception to the log.
+                except Exception as error:
+                    logging.error("An error occurred during the clean up process of the database dump: {}".format(
+                        error), exc_info=True)
+
                 # Return the result.
                 return result
 
