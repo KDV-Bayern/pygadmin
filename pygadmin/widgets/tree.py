@@ -60,13 +60,6 @@ class TreeNodeWorker(QRunnable):
         self.signals.node_creation_complete.emit(True)
 
 
-class TreeContextMenuAction:
-    def __init__(self, function, parameters, node_types):
-        self.function = function
-        self.parameters = parameters
-        self.node_types = node_types
-
-
 class TreeWidget(QWidget):
     """
     Create a class which is a child class of QWidget as interface for the tree, which shows the available servers,
@@ -229,15 +222,14 @@ class TreeWidget(QWidget):
 
     def open_context_menu(self, position):
         """
-        Get the position of a requested context menu and open the context menu at this position with different actions.
-        One of these actions is to open a new connection dialog and for this, the current selected item/node is
-        necessary, so the corresponding connection is selected in the dialog.
+        Request a context menu with the given position. The actions are defined in one big dictionary with the relevant
+        function and nodes as parameters.
         """
 
         # Make a new context menu as QMenu.
         self.context_menu = QMenu()
 
-        # TODO: Under construction
+        # Define an action dictionary.
         actions = {
             "Edit Connection": [self.show_connection_dialog_for_current_node, ServerNode],
             "Refresh": [self.refresh_current_selected_node, ServerNode],
@@ -246,13 +238,24 @@ class TreeWidget(QWidget):
             "Show Database Permissions": [self.show_permission_dialog, DatabaseNode],
             "Show Materialized Views": [self.show_materialized_views_of_database_node, DatabaseNode],
             "Show Create View Statement": [self.get_create_statement_of_node, ViewNode],
-            "Show View Permissions": [self.show_permission_dialog, ViewNode]
+            "Show View Permissions": [self.show_permission_dialog, ViewNode],
+            # The function requires a second parameter for separating the full definition of a table and the small
+            # definition of a table.
+            "Show Definition": [self.show_table_information_dialog, TableNode, False],
+            "Show Full Definition": [self.show_table_information_dialog, TableNode, True],
+            "Show Create Table Statement": [self.get_create_statement_of_node, TableNode],
+            "Show Table Permissions": [self.show_permission_dialog, TableNode],
+            "Edit Single Values": [self.show_edit_single_values_dialog, TableNode],
+            "Export Full Table As CSV": [self.get_full_data_of_current_table_for_csv_export, TableNode]
         }
 
+        # Define dictionaries for all node types with their actions.
         server_actions = {}
         database_actions = {}
         view_actions = {}
+        table_actions = {}
 
+        # Insert the actions in the specified dictionaries.
         for action_key, action_value in actions.items():
             if action_value[1] == ServerNode:
                 server_actions[action_key] = action_value
@@ -263,71 +266,46 @@ class TreeWidget(QWidget):
             elif action_value[1] == ViewNode:
                 view_actions[action_key] = action_value
 
+            elif action_value[1] == TableNode:
+                table_actions[action_key] = action_value
+
         # Get the current selected node by the function for getting the selected element by the current selection.
         current_selected_node = self.get_selected_element_by_current_selection()
 
+        # Add the actions to the context menu based on the node.
         self.add_action_to_context_menu(current_selected_node, ServerNode, server_actions, position)
         self.add_action_to_context_menu(current_selected_node, DatabaseNode, database_actions, position)
         self.add_action_to_context_menu(current_selected_node, ViewNode, view_actions, position)
-
-        # Check for a table node as current selected node.
-        if isinstance(current_selected_node, TableNode):
-            # Create an action for showing the definition of the node.
-            show_definition_action = QAction("Show Definition", self)
-            # Add the action to the context menu.
-            self.context_menu.addAction(show_definition_action)
-            # Create an action for showing the full definition of the node.
-            show_full_definition_action = QAction("Show Full Definition", self)
-            # Add the action to the context menu.
-            self.context_menu.addAction(show_full_definition_action)
-            # Create an action for showing the create statement of the table node.
-            show_create_statement_action = QAction("Show Create Statement", self)
-            self.context_menu.addAction(show_create_statement_action)
-            show_permission_information_action = QAction("Show Permissions", self)
-            self.context_menu.addAction(show_permission_information_action)
-            edit_single_values_action = QAction("Edit Single Values", self)
-            self.context_menu.addAction(edit_single_values_action)
-            export_full_table_to_csv_action = QAction("Export Full Table As CSV", self)
-            self.context_menu.addAction(export_full_table_to_csv_action)
-            # Get the action at the current position of the triggering event.
-            position_action = self.context_menu.exec_(self.tree_view.viewport().mapToGlobal(position))
-
-            # Check, if the action at the current position is the action for showing the definition of a table.
-            if position_action == show_definition_action:
-                # Show a new table dialog.
-                self.show_table_information_dialog(current_selected_node, False)
-
-            # Check, if the action at the current position is the action for showing the full definition of a table
-            elif position_action == show_full_definition_action:
-                # Show the new table dialog.
-                self.show_table_information_dialog(current_selected_node, True)
-
-            elif position_action == show_create_statement_action:
-                # Use the function for getting the create statement of the database node.
-                self.get_create_statement_of_node(current_selected_node)
-
-            elif position_action == show_permission_information_action:
-                self.show_permission_dialog(current_selected_node)
-
-            elif position_action == edit_single_values_action:
-                self.show_edit_single_values_dialog(current_selected_node)
-
-            elif position_action == export_full_table_to_csv_action:
-                self.get_full_data_of_current_table_for_csv_export(current_selected_node)
+        self.add_action_to_context_menu(current_selected_node, TableNode, table_actions, position)
 
     def add_action_to_context_menu(self, selected_node, node_type, actions, position):
-        # TODO: docu, refactoring
+        """
+        Add an action to the context menu. The selected node and the node type are required for correct inserting in the
+        context menu. Every action in the actions dictionary is used for creating an actual QAction.
+        """
+
+        # Check for the correct instance for appending the actions to the correct node.
         if isinstance(selected_node, node_type):
             for action_key, action_value in actions.items():
+                # Create and add the action.
                 new_action = QAction(action_key, self)
                 self.context_menu.addAction(new_action)
                 action_value.append(new_action)
 
+            # Get the action at the current position.
             position_action = self.context_menu.exec_(self.tree_view.viewport().mapToGlobal(position))
 
+            # Check every action value in the value list for the position action.
             for value in actions.values():
-                if position_action == value[2]:
-                    value[0](selected_node)
+                # The action is the last element of the list.
+                if position_action == value[-1]:
+                    # Check for the length of the value list: If the list contains 3 elements, no additional parameters
+                    # are necessary.
+                    if len(value) == 3:
+                        value[0](selected_node)
+
+                    else:
+                        value[0](selected_node, value[2])
 
     def show_edit_single_value_table(self):
         """
