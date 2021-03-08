@@ -164,6 +164,21 @@ class MainWindow(QMainWindow):
         # Create a new menu bar point: An editor menu.
         editor_menu = self.menu_bar.addMenu("Editor")
 
+        # Add an action for submitting the query in the current editor.
+        self.add_action_to_menu_bar("Submit Query", self.submit_current_query_to_editor, alternate_menu=editor_menu)
+        # Add an action for stopping the query in the current editor.
+        self.add_action_to_menu_bar("Stop Query", self.stop_current_query_in_editor, alternate_menu=editor_menu)
+        editor_menu.addSeparator()
+
+        # Add an action for exporting the current result of the query to a csv file.
+        self.add_action_to_menu_bar("Export Result To CSV", self.export_current_result_in_editor_to_csv,
+                                    alternate_menu=editor_menu)
+        # Add an action for explaining the current query plan.
+        self.add_action_to_menu_bar("Explain Query Plan", self.explain_current_query_in_editor,
+                                    alternate_menu=editor_menu)
+
+        editor_menu.addSeparator()
+
         # Add the search dialog in the editor to the editor menu.
         self.add_action_to_menu_bar("Search", self.search_usage_in_editor, alternate_menu=editor_menu)
 
@@ -553,6 +568,62 @@ class MainWindow(QMainWindow):
         # Connect the signal for getting the command with a double click in the history with the function for loading an
         # empty editor with this command.
         self.command_history_dialog.get_double_click_command.connect(self.load_empty_editor_with_command)
+
+    def submit_current_query_to_editor(self):
+        """
+        Submit the current query in the editor.
+        """
+
+        # Get the editor widget.
+        editor_widget = self.mdi_area.determine_current_editor_widget()
+
+        # Check for an existing widget.
+        if editor_widget is not None:
+            # Check the button for submitting the query: If the button is enabled, the query will be executed.
+            if editor_widget.submit_query_button.isEnabled():
+                editor_widget.execute_current_query(None)
+
+    def stop_current_query_in_editor(self):
+        """
+        Stop the query in the current editor widget.
+        """
+
+        # Get the widget.
+        editor_widget = self.mdi_area.determine_current_editor_widget()
+
+        # Check for the existence of the widget.
+        if editor_widget is not None:
+            # If the stop button is enabled, the function can be executed.
+            if editor_widget.stop_query_button.isEnabled():
+                editor_widget.stop_current_query()
+
+    def export_current_result_in_editor_to_csv(self):
+        """
+        Export the current result in the editor to a csv file.
+        """
+
+        # Get the widget.
+        editor_widget = self.mdi_area.determine_current_editor_widget()
+
+        # Check for the existence of the widget.
+        if editor_widget is not None:
+            # Check if CSV export is currently possible.
+            if editor_widget.csv_export_possible:
+                editor_widget.export_and_save_csv_data()
+
+    def explain_current_query_in_editor(self):
+        """
+        Explain the current query in the editor.
+        """
+
+        # Get the editor widget.
+        editor_widget = self.mdi_area.determine_current_editor_widget()
+
+        # Check for the existence of the widget.
+        if editor_widget is not None:
+            # Check for the enabling of the submit button, because in this case, explaining the query is possible too.
+            if editor_widget.submit_query_button.isEnabled():
+                editor_widget.execute_explain_analyze_query()
 
     def closeEvent(self, a0: QtGui.QCloseEvent) -> None:
         """

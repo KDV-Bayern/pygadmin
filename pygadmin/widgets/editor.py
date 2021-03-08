@@ -101,13 +101,9 @@ class EditorWidget(QWidget, SearchReplaceParent, metaclass=MetaEditor):
         # shows an error to the user.
         self.submit_query_shortcut.activated.connect(self.check_for_valid_connection_and_execute_query_with_shortcut)
 
-        # Create a button for explaining the current query (plan).
-        self.explain_query_button = QPushButton("Explain Query Plan")
-        # Connect the function for executing the explaining process with the button.
-        self.explain_query_button.clicked.connect(self.execute_explain_analyze_query)
 
         # Check for enabling and disabling of the button for submitting or explaining a query.
-        self.check_enabling_of_submit_and_explain_button()
+        self.check_enabling_of_submit_button()
 
         # Create a button for stopping a query.
         self.stop_query_button = QPushButton("Stop Query")
@@ -155,12 +151,8 @@ class EditorWidget(QWidget, SearchReplaceParent, metaclass=MetaEditor):
         self.replace_usages_shortcut = QShortcut(QKeySequence("Ctrl+R"), self)
         self.replace_usages_shortcut.activated.connect(self.open_replace_dialog)
 
-        # Create a button for exporting the result to a csv.
-        self.export_csv_button = QPushButton("Export result to .csv")
-        # Connect the button with the function for exporting and saving the csv data.
-        self.export_csv_button.clicked.connect(self.export_and_save_csv_data)
-        # Set the button as invisible as default, because at the beginning, an export is not necessary.
-        self.export_csv_button.setVisible(False)
+        # Set the csv export to not possible at the moment.
+        self.csv_export_possible = False
 
         self.setGeometry(600, 600, 500, 300)
 
@@ -188,17 +180,10 @@ class EditorWidget(QWidget, SearchReplaceParent, metaclass=MetaEditor):
         splitter.addWidget(self.table_view)
         # Add the splitter to the grid layout.
         grid_layout.addWidget(splitter, 3, 0, 1, 4)
-
-        # Set the export button on the top of the buttons. The export button is only visible, if results are available
-        # in the table view.
-        grid_layout.addWidget(self.export_csv_button, 4, 0, 1, 4)
-
-        # Set the submit button for the SQL queries as element at the bottom.
-        grid_layout.addWidget(self.submit_query_button, 6, 0, 1, 4)
+        # Set the submit button for the SQL queries under the table.
+        grid_layout.addWidget(self.submit_query_button, 4, 0, 1, 4)
         # Place the stop button below the submit button.
-        grid_layout.addWidget(self.stop_query_button, 7, 0, 1, 4)
-        # Place the explain button below the stop button.
-        grid_layout.addWidget(self.explain_query_button, 8, 0, 1, 4)
+        grid_layout.addWidget(self.stop_query_button, 5, 0, 1, 4)
 
         grid_layout.setSpacing(10)
 
@@ -262,7 +247,7 @@ class EditorWidget(QWidget, SearchReplaceParent, metaclass=MetaEditor):
 
         # Check for enabling or disabling the button and the shortcut for submitting a query based on the new result of
         # the established connection.
-        self.check_enabling_of_submit_and_explain_button()
+        self.check_enabling_of_submit_button()
 
         # Update the window title to the current status of the database connection.
         self.update_window_title_and_description()
@@ -283,8 +268,8 @@ class EditorWidget(QWidget, SearchReplaceParent, metaclass=MetaEditor):
         # Activate the button and the shortcut for stopping the current query.
         self.set_stop_query_element_activate(True)
 
-        # Set the button invisible during a query.
-        self.export_csv_button.setVisible(False)
+        # Set the csv export to not possible during a query.
+        self.csv_export_possible = False
 
         # If the query is None, the default parameter is used, so it is necessary to get the current query in the input
         # editor.
@@ -377,8 +362,8 @@ class EditorWidget(QWidget, SearchReplaceParent, metaclass=MetaEditor):
         # Disable the button and the short cut for stopping a query, because a query is currently not executed.
         self.set_stop_query_element_activate(False)
 
-        # Set the export button visible after a result.
-        self.export_csv_button.setVisible(True)
+        # Enable the csv export.
+        self.csv_export_possible = True
 
         # Check, if the command should be saved.
         if save_command:
@@ -407,7 +392,7 @@ class EditorWidget(QWidget, SearchReplaceParent, metaclass=MetaEditor):
         # Show the error in the table model and do not save the command, which caused the error.
         self.refresh_table_model(error_result_list, save_command=False)
 
-    def check_enabling_of_submit_and_explain_button(self):
+    def check_enabling_of_submit_button(self):
         """
         Check for enabling or disabling the button and the shortcut for submitting a query. There is a check for a valid
         connection with a specified function.
@@ -418,7 +403,6 @@ class EditorWidget(QWidget, SearchReplaceParent, metaclass=MetaEditor):
 
         # If the connection is valid, the button is enabled. If the connection is invalid, the button is disabled.
         self.submit_query_button.setEnabled(is_connection_valid)
-        self.explain_query_button.setEnabled(is_connection_valid)
 
     def check_query_status_message(self, status_message):
         """
