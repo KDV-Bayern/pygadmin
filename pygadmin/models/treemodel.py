@@ -276,10 +276,11 @@ class DatabaseNode(AbstractBaseNode):
         """
 
         # Use a query to get all children, in this case, all the schema nodes except pg_toast, pg_toast_temp_1 and
-        # pg_temp_1 as unused schemas.
+        # pg_temp_1 as unused schemas. Ignore also all pg_temp_ with three additional numbers at the end.
         self.fetch_children(SchemaNode, "SELECT schema_name FROM information_schema.schemata WHERE schema_name "
                                         "!= 'pg_toast' AND schema_name != 'pg_toast_temp_1' AND schema_name "
-                                        "!= 'pg_temp_1' ORDER BY schema_name ASC;")
+                                        "!= 'pg_temp_1' AND schema_name NOT SIMILAR TO 'pg_temp_[0-9]{3}' "
+                                        "ORDER BY schema_name ASC;")
 
 
 class SchemaNode(AbstractBaseNode):
